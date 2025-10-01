@@ -38,8 +38,8 @@
 
 1. **リポジトリのクローン**
 ```bash
-git clone <repository-url>
-cd knowledge_portal
+git clone https://github.com/yominosekai/yominosekai-knowledge_portal_localserver_next.git
+cd yominosekai-knowledge_portal_localserver_next/nextjs-app
 ```
 
 2. **依存関係のインストール**
@@ -165,7 +165,7 @@ docker run -p 3000:3000 knowledge-portal
 
 - **Issues**: GitHub Issues
 - **Discussions**: GitHub Discussions
-- **Email**: support@example.com
+- **Email**: seikeityuu3108@gmail.com
 
 ## 🎯 ロードマップ
 
