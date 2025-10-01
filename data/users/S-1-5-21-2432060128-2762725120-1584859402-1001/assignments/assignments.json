@@ -1,0 +1,16 @@
+[
+  {
+    "contentId": "34",
+    "assignedTo": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+    "assignedBy": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+    "assignedDate": "2025-10-01T13:28:32.393Z",
+    "dueDate": "2025-10-03",
+    "status": "in_progress",
+    "progress": 100,
+    "notes": "2回目の割り当て",
+    "priority": "medium",
+    "id": "assignment_1759325312393_ewkgvyiyq",
+    "created_date": "2025-10-01T13:28:32.393Z",
+    "updated_date": "2025-10-01T13:58:00.967Z"
+  }
+]

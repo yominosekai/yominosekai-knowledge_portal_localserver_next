@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       content = await getAllContent();
     }
     
-    return NextResponse.json(content);
+    return NextResponse.json({ success: true, materials: content });
   } catch (error) {
     console.error('Content GET error:', error);
     return NextResponse.json(

@@ -78,7 +78,7 @@ class ApiClient {
 
   // 認証
   async authenticate(): Promise<any> {
-    return this.request('/api/auth', { method: 'POST' });
+    return this.request('/api/auth', { method: 'GET' });
   }
 
   // 進捗データ取得
@@ -88,12 +88,50 @@ class ApiClient {
 
   // コンテンツ一覧取得
   async getContent(): Promise<Material[]> {
-    return this.request<Material[]>('/api/content');
+    try {
+      const response = await this.request<any>('/api/content');
+      console.log('Content API response:', response);
+      
+      // レスポンスが配列の場合はそのまま返す
+      if (Array.isArray(response)) {
+        return response;
+      }
+      
+      // レスポンスがオブジェクトでmaterialsプロパティがある場合
+      if (response && response.materials && Array.isArray(response.materials)) {
+        return response.materials;
+      }
+      
+      // どちらでもない場合は空配列を返す
+      console.warn('Unexpected response format:', response);
+      return [];
+    } catch (error) {
+      console.error('Error fetching content:', error);
+      return [];
+    }
   }
 
   // カテゴリ一覧取得
   async getCategories(): Promise<Category[]> {
-    return this.request<Category[]>('/api/categories');
+    try {
+      const response = await this.request<any>('/api/categories');
+      
+      // レスポンスが配列の場合はそのまま返す
+      if (Array.isArray(response)) {
+        return response;
+      }
+      
+      // レスポンスがオブジェクトでcategoriesプロパティがある場合
+      if (response && response.categories && Array.isArray(response.categories)) {
+        return response.categories;
+      }
+      
+      // どちらでもない場合は空配列を返す
+      return [];
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      return [];
+    }
   }
 
   // 進捗更新

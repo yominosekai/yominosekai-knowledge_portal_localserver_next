@@ -13,23 +13,44 @@ html, body {
 
 body {
   color: var(--foreground);
+  min-height: 100vh;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ダークテーマ */
+.dark {
   background: radial-gradient(1200px 800px at 10% -10%, #101828 0%, #0b0b0c 45%),
               radial-gradient(1200px 800px at 110% 10%, #0b1220 0%, #0b0b0c 40%);
-  min-height: 100vh;
+  color: white;
+}
+
+/* ライトテーマ */
+.light {
+  background: radial-gradient(1200px 800px at 10% -10%, #f8fafc 0%, #e2e8f0 45%),
+              radial-gradient(1200px 800px at 110% 10%, #e2e8f0 0%, #cbd5e1 40%);
+  color: #1e293b;
 }
 
 /* レスポンシブデザインの最適化 */
 @media (max-width: 768px) {
-  body {
+  .dark {
     background: radial-gradient(800px 600px at 10% -10%, #101828 0%, #0b0b0c 45%),
                 radial-gradient(800px 600px at 110% 10%, #0b1220 0%, #0b0b0c 40%);
+  }
+  .light {
+    background: radial-gradient(800px 600px at 10% -10%, #f8fafc 0%, #e2e8f0 45%),
+                radial-gradient(800px 600px at 110% 10%, #e2e8f0 0%, #cbd5e1 40%);
   }
 }
 
 @media (max-width: 480px) {
-  body {
+  .dark {
     background: radial-gradient(600px 400px at 10% -10%, #101828 0%, #0b0b0c 45%),
                 radial-gradient(600px 400px at 110% 10%, #0b1220 0%, #0b0b0c 40%);
+  }
+  .light {
+    background: radial-gradient(600px 400px at 10% -10%, #f8fafc 0%, #e2e8f0 45%),
+                radial-gradient(600px 400px at 110% 10%, #e2e8f0 0%, #cbd5e1 40%);
   }
 }
 

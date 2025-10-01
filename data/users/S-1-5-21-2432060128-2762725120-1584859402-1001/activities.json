@@ -1,0 +1,85 @@
+{
+  "user_sid": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+  "username": "",
+  "display_name": "",
+  "activities": [
+    {
+      "id": 1759306541600,
+      "material_id": "21",
+      "activity_type": "study",
+      "status": "completed",
+      "start_date": "2025-10-01",
+      "completion_date": "2025-10-01",
+      "score": 100,
+      "notes": "",
+      "timestamp": "2025-10-01T08:15:41.600Z"
+    },
+    {
+      "id": 1759306546871,
+      "material_id": "21",
+      "activity_type": "study",
+      "status": "not_started",
+      "start_date": "2025-10-01",
+      "completion_date": "",
+      "score": 0,
+      "notes": "",
+      "timestamp": "2025-10-01T08:15:46.871Z"
+    },
+    {
+      "id": 1759306547626,
+      "material_id": "21",
+      "activity_type": "study",
+      "status": "in_progress",
+      "start_date": "2025-10-01",
+      "completion_date": "",
+      "score": 50,
+      "notes": "",
+      "timestamp": "2025-10-01T08:15:47.626Z"
+    },
+    {
+      "id": 1759306553228,
+      "material_id": "21",
+      "activity_type": "study",
+      "status": "in_progress",
+      "start_date": "2025-10-01",
+      "completion_date": "",
+      "score": 50,
+      "notes": "",
+      "timestamp": "2025-10-01T08:15:53.228Z"
+    },
+    {
+      "id": 1759308898487,
+      "material_id": "21",
+      "activity_type": "study",
+      "status": "not_started",
+      "start_date": "2025-10-01",
+      "completion_date": "",
+      "score": 0,
+      "notes": "",
+      "timestamp": "2025-10-01T08:54:58.487Z"
+    },
+    {
+      "id": 1759312363049,
+      "material_id": "47",
+      "activity_type": "study",
+      "status": "in_progress",
+      "start_date": "2025-10-01",
+      "completion_date": "",
+      "score": 50,
+      "notes": "",
+      "timestamp": "2025-10-01T09:52:43.049Z"
+    },
+    {
+      "id": 1759312363743,
+      "material_id": "47",
+      "activity_type": "study",
+      "status": "in_progress",
+      "start_date": "2025-10-01",
+      "completion_date": "",
+      "score": 50,
+      "notes": "",
+      "timestamp": "2025-10-01T09:52:43.743Z"
+    }
+  ],
+  "last_updated": "2025-10-01T09:52:43.743Z"
+}

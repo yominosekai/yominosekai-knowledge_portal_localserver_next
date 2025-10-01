@@ -25,3 +25,5 @@ module.exports = defineConfig({
     supportFile: 'cypress/support/component.js',
   },
 })
+
+

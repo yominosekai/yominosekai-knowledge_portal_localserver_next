@@ -24,11 +24,11 @@ export default function Page() {
         
         // コンテンツ一覧取得
         const materials = await apiClient.getContent();
-        setRecentMaterials(materials.slice(0, 5)); // 最新5件
+        setRecentMaterials(Array.isArray(materials) ? materials.slice(0, 5) : []);
         
       } catch (err) {
         console.error('データ取得エラー:', err);
-        setError('データの取得に失敗しました。PowerShellサーバーが起動しているか確認してください。');
+        setError('データの取得に失敗しました。しばらく待ってから再度お試しください。');
       } finally {
         setLoading(false);
       }

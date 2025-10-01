@@ -48,19 +48,30 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    const { userId } = params;
-    const body = await request.json();
+    const { userId } = await params;
+    const { material_id, status, score } = await request.json();
     
-    const result = await updateUserActivities(userId, body);
+    console.log('Progress update request:', { userId, material_id, status, score });
+    
+    const result = await updateUserActivities(userId, {
+      material_id,
+      status,
+      score: score || (status === 'completed' ? 100 : status === 'in_progress' ? 50 : 0),
+      updated_at: new Date().toISOString()
+    });
     
     if (result.success) {
-      return NextResponse.json(result);
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Progress updated successfully',
+        data: result.data 
+      });
     } else {
       return NextResponse.json(
-        { success: false, error: 'Failed to update activities' },
+        { success: false, error: 'Failed to update progress' },
         { status: 500 }
       );
     }

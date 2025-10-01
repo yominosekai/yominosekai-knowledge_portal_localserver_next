@@ -20,7 +20,7 @@ const nextConfig = {
   poweredByHeader: false,
   generateEtags: true,
 
-  // バンドル分析
+  // バンドル分析とキャッシュ最適化
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
     // バンドルサイズの最適化
     if (!dev && !isServer) {
@@ -42,8 +42,41 @@ const nextConfig = {
       };
     }
 
+    // キャッシュの最適化
+    config.cache = {
+      type: 'filesystem',
+      buildDependencies: {
+        config: [__filename],
+      },
+    };
+
+    // エラーハンドリングの改善
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+    };
+
     return config;
   },
+
+       // 実験的機能（キャッシュ最適化）
+       experimental: {
+         // キャッシュの無効化設定
+         staleTimes: {
+           dynamic: 0,
+           static: 0,
+         },
+         // メモリ使用量の最適化
+         memoryBasedWorkersCount: true,
+         // バンドル最適化（CSS最適化を無効化してキャッシュ問題を回避）
+         optimizeCss: false,
+         // キャッシュ問題を回避するための設定
+         webVitalsAttribution: ['CLS', 'LCP'],
+         // 開発時のキャッシュ無効化
+         forceSwcTransforms: true,
+       },
 
   // ヘッダーの設定
   async headers() {

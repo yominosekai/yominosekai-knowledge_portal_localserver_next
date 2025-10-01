@@ -1,17 +1,17 @@
-id,name,description,parent_id,level
-1,Programming,Programming languages and development,0,1
-2,Web Development,Frontend and backend web development,1,2
-3,Database,Database design and management,1,2
-4,DevOps,Development operations and deployment,1,2
-5,Cybersecurity,Information security and protection,0,1
-6,Network Security,Network protection and monitoring,5,2
-7,Application Security,Application-level security,5,2
-8,Cloud Computing,Cloud platforms and services,0,1
-9,AWS,Amazon Web Services,8,2
-10,Azure,Microsoft Azure,8,2
-11,Data Science,Data analysis and machine learning,0,1
-12,Python,Python programming for data science,11,2
-13,R,Statistical programming with R,11,2
-14,Project Management,Project planning and execution,0,1
-15,Agile,Agile methodologies,14,2
-16,Scrum,Scrum framework,15,3
+"id","name","description","parent_id","level"
+"1","Programming","Programming languages and development","0","1"
+"2","Web Development","Frontend and backend web development","1","2"
+"3","Database","Database design and management","1","2"
+"4","DevOps","Development operations and deployment","1","2"
+"5","Cybersecurity","Information security and protection","0","1"
+"6","Network Security","Network protection and monitoring","5","2"
+"7","Application Security","Application-level security","5","2"
+"8","Cloud Computing","Cloud platforms and services","0","1"
+"9","AWS","Amazon Web Services","8","2"
+"10","Azure","Microsoft Azure","8","2"
+"11","Data Science","Data analysis and machine learning","0","1"
+"12","Python","Python programming for data science","11","2"
+"13","R","Statistical programming with R","11","2"
+"14","Project Management","Project planning and execution","0","1"
+"15","Agile","Agile methodologies","14","2"
+"16","Scrum","Scrum framework","15","3"

@@ -119,3 +119,5 @@ export function ProgressChart({ data, className = '' }: ProgressChartProps) {
     </div>
   );
 }
+
+

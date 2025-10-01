@@ -247,3 +247,5 @@ export const validationRules = {
   pattern: (regex: RegExp, message: string) => (value: string) =>
     value && !regex.test(value) ? message : null
 };
+
+

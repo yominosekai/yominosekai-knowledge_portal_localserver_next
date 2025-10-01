@@ -2,20 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { apiClient, Material, User } from '../../lib/api';
-
-interface Assignment {
-  id: string;
-  contentId: string;
-  content: Material;
-  assignedTo: string;
-  assignedBy: string;
-  assignedDate: string;
-  dueDate: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'overdue';
-  progress: number;
-  notes?: string;
-  priority: 'low' | 'medium' | 'high';
-}
+import { Assignment } from '../../lib/data';
+import { ContentModal } from '../../components/ContentModal';
 
 export default function Page() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -24,7 +12,10 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [refreshKey, setRefreshKey] = useState(0);
   const [filterUser, setFilterUser] = useState('all');
+  const [userRole, setUserRole] = useState<string>('');
+  const [userDepartment, setUserDepartment] = useState<string>('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newAssignment, setNewAssignment] = useState({
     contentId: '',
@@ -33,6 +24,8 @@ export default function Page() {
     notes: '',
     priority: 'medium' as 'low' | 'medium' | 'high'
   });
+  const [selectedContent, setSelectedContent] = useState<any>(null);
+  const [isContentModalOpen, setIsContentModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -40,39 +33,57 @@ export default function Page() {
         setLoading(true);
         
         // 認証
-        await apiClient.authenticate();
+        const authResult = await apiClient.authenticate();
+        if (authResult?.user) {
+          setUserRole(authResult.user.role);
+          setUserDepartment(authResult.user.department);
+        }
         
         // データ取得
-        const [materialsData, usersData] = await Promise.all([
+        const [materialsData, usersData, assignmentsData] = await Promise.all([
           apiClient.getContent(),
-          fetch('/api/admin/users').then(res => res.json())
+          fetch('/api/admin/users').then(res => res.json()),
+          fetch('/api/assignments').then(res => res.json())
         ]);
         
         setMaterials(materialsData);
-        setUsers(usersData);
         
-        // アサインメントデータを生成（仮実装）
-        const mockAssignments: Assignment[] = materialsData.slice(0, 10).map((material, index) => {
-          const assignedUser = usersData[index % usersData.length];
-          const dueDate = new Date();
-          dueDate.setDate(dueDate.getDate() + Math.floor(Math.random() * 30) + 7);
+        // ユーザーフィルタリング（インストラクターは同じ部署のみ、管理者は全員）
+        let filteredUsers = usersData;
+        if (userRole === 'instructor') {
+          filteredUsers = usersData.filter((user: User) => user.department === userDepartment);
+        }
+        setUsers(filteredUsers);
+        
+        if (assignmentsData.success) {
+          // アサインメントデータにコンテンツ情報を追加
+          let enrichedAssignments = assignmentsData.assignments.map((assignment: Assignment) => {
+            const content = materialsData.find(m => m.id === assignment.contentId);
+            return {
+              ...assignment,
+              content: content || {
+                id: assignment.contentId,
+                title: 'Unknown Content',
+                description: 'Content not found',
+                difficulty: 'unknown',
+                estimated_hours: '0'
+              }
+            };
+          });
           
-          return {
-            id: `assignment-${index + 1}`,
-            contentId: material.id,
-            content: material,
-            assignedTo: assignedUser.sid,
-            assignedBy: 'S-1-5-21-2432060128-2762725120-1584859402-1001', // 管理者
-            assignedDate: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-            dueDate: dueDate.toISOString(),
-            status: index % 4 === 0 ? 'completed' : index % 4 === 1 ? 'in_progress' : index % 4 === 2 ? 'overdue' : 'pending',
-            progress: index % 4 === 0 ? 100 : index % 4 === 1 ? Math.floor(Math.random() * 80) + 20 : 0,
-            notes: index % 3 === 0 ? '重要度の高い課題です' : undefined,
-            priority: index % 3 === 0 ? 'high' : index % 3 === 1 ? 'medium' : 'low'
-          };
-        });
-        
-        setAssignments(mockAssignments);
+          // アサインメントフィルタリング（インストラクターは同じ部署のみ、管理者は全員）
+          if (userRole === 'instructor') {
+            enrichedAssignments = enrichedAssignments.filter((assignment: Assignment) => {
+              const assignedUser = usersData.find((user: User) => user.sid === assignment.assignedTo);
+              return assignedUser?.department === userDepartment;
+            });
+          }
+          
+          setAssignments(enrichedAssignments);
+        } else {
+          console.error('Failed to fetch assignments:', assignmentsData.error);
+          setAssignments([]);
+        }
         
       } catch (err) {
         console.error('データ取得エラー:', err);
@@ -83,7 +94,19 @@ export default function Page() {
     };
 
     fetchData();
-  }, []);
+  }, [userRole, userDepartment]);
+
+  // アサインメント状態の変更を監視
+  useEffect(() => {
+    console.log('🔄 [useEffect] Assignments state changed:', assignments);
+    // 強制的に再レンダリングを促す
+    setRefreshKey(prev => prev + 1);
+  }, [assignments]);
+
+  // 強制的に再レンダリングを促すためのuseEffect
+  useEffect(() => {
+    console.log('🔄 [useEffect] RefreshKey changed:', refreshKey);
+  }, [refreshKey]);
 
   const filteredAssignments = assignments.filter(assignment => {
     const matchesStatus = filterStatus === 'all' || assignment.status === filterStatus;
@@ -125,32 +148,267 @@ export default function Page() {
     return user ? user.display_name : '不明なユーザー';
   };
 
+  const handleShowContentDetail = (assignment: Assignment) => {
+    console.log('🔍 [handleShowContentDetail] Opening content modal for assignment:', assignment);
+    console.log('🔍 [handleShowContentDetail] Content:', assignment.content);
+    
+    // アサインメントのコンテンツ情報をContentModal用に整形
+    const contentForModal = {
+      id: assignment.contentId,
+      title: assignment.content.title,
+      description: assignment.content.description,
+      difficulty: assignment.content.difficulty,
+      estimated_hours: assignment.content.estimated_hours,
+      type: 'material' // ContentModalで必要なフィールド
+    };
+    
+    setSelectedContent(contentForModal);
+    setIsContentModalOpen(true);
+  };
+
+  const handleCloseContentModal = () => {
+    setIsContentModalOpen(false);
+    setSelectedContent(null);
+  };
+
+  const handleProgressUpdate = (contentId: string, status: string) => {
+    console.log('📊 [handleProgressUpdate] Progress updated for content:', contentId, 'status:', status);
+    // 必要に応じてアサインメントの進捗も更新
+    // 現在はContentModalの進捗更新のみ
+  };
+
+  const handleUpdateAssignment = async (assignmentId: string, updates: any) => {
+    try {
+      console.log('🔄 [handleUpdateAssignment] Starting update:', assignmentId, updates);
+      const assignment = assignments.find(a => a.id === assignmentId);
+      if (!assignment) {
+        console.log('❌ [handleUpdateAssignment] Assignment not found:', assignmentId);
+        return;
+      }
+
+      console.log('🔄 [handleUpdateAssignment] Found assignment:', assignment);
+      
+      // サーバーに更新を送信
+      const response = await fetch(`/api/assignments/${assignment.assignedTo}/${assignmentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+
+      console.log('🔄 [handleUpdateAssignment] API response status:', response.status);
+      const result = await response.json();
+      console.log('🔄 [handleUpdateAssignment] API response result:', result);
+
+      if (result.success) {
+        console.log('✅ [handleUpdateAssignment] Update successful, refreshing assignments...');
+        
+             // アサインメント一覧を再取得（キャッシュバスティング付き）
+             const assignmentsResponse = await fetch(`/api/assignments?t=${Date.now()}`, {
+               method: 'GET',
+               headers: {
+                 'Cache-Control': 'no-cache',
+                 'Pragma': 'no-cache'
+               }
+             });
+             console.log('🔄 [handleUpdateAssignment] Fetching assignments, status:', assignmentsResponse.status);
+        
+        const assignmentsData = await assignmentsResponse.json();
+        console.log('📊 [handleUpdateAssignment] Raw assignments data:', assignmentsData);
+        
+        if (assignmentsData.success) {
+          let enrichedAssignments = assignmentsData.assignments.map((assignment: Assignment) => {
+            const content = materials.find(m => m.id === assignment.contentId);
+            return {
+              ...assignment,
+              content: content || {
+                id: assignment.contentId,
+                title: 'Unknown Content',
+                description: 'Content not found',
+                difficulty: 'unknown',
+                estimated_hours: '0'
+              }
+            };
+          });
+          
+          console.log('📊 [handleUpdateAssignment] Enriched assignments before filter:', enrichedAssignments);
+          
+          // アサインメントフィルタリング（インストラクターは同じ部署のみ、管理者は全員）
+          if (userRole === 'instructor') {
+            enrichedAssignments = enrichedAssignments.filter((assignment: Assignment) => {
+              const assignedUser = users.find((user: User) => user.sid === assignment.assignedTo);
+              return assignedUser?.department === userDepartment;
+            });
+            console.log('🏢 [handleUpdateAssignment] Applied instructor filter:', userDepartment, 'Filtered count:', enrichedAssignments.length);
+          }
+          
+          console.log('🔄 [handleUpdateAssignment] Setting assignments state:', enrichedAssignments);
+          setAssignments(enrichedAssignments);
+          console.log('✅ [handleUpdateAssignment] UI update completed');
+        } else {
+          console.error('❌ [handleUpdateAssignment] Failed to fetch assignments after update');
+        }
+        alert('アサインメントが更新されました');
+      } else {
+        console.error('❌ [handleUpdateAssignment] Update failed:', result.error);
+        alert(`エラー: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('❌ [handleUpdateAssignment] Error updating assignment:', error);
+      alert('アサインメントの更新に失敗しました');
+    }
+  };
+
+  const handleDeleteAssignment = async (assignmentId: string) => {
+    if (!confirm('このアサインメントを削除しますか？')) return;
+
+    try {
+      console.log('🗑️ [handleDeleteAssignment] Starting delete:', assignmentId);
+      const assignment = assignments.find(a => a.id === assignmentId);
+      if (!assignment) {
+        console.log('❌ [handleDeleteAssignment] Assignment not found:', assignmentId);
+        return;
+      }
+
+      console.log('🗑️ [handleDeleteAssignment] Found assignment:', assignment);
+      
+      // サーバーに削除を送信
+      const response = await fetch(`/api/assignments/${assignment.assignedTo}/${assignmentId}`, {
+        method: 'DELETE',
+      });
+
+      console.log('🗑️ [handleDeleteAssignment] API response status:', response.status);
+      const result = await response.json();
+      console.log('🗑️ [handleDeleteAssignment] API response result:', result);
+
+      if (result.success) {
+        console.log('✅ [handleDeleteAssignment] Delete successful, refreshing assignments...');
+        
+             // アサインメント一覧を再取得（キャッシュバスティング付き）
+             const assignmentsResponse = await fetch(`/api/assignments?t=${Date.now()}`, {
+               method: 'GET',
+               headers: {
+                 'Cache-Control': 'no-cache',
+                 'Pragma': 'no-cache'
+               }
+             });
+             console.log('🗑️ [handleDeleteAssignment] Fetching assignments, status:', assignmentsResponse.status);
+        
+        const assignmentsData = await assignmentsResponse.json();
+        console.log('📊 [handleDeleteAssignment] Raw assignments data:', assignmentsData);
+        
+        if (assignmentsData.success) {
+          let enrichedAssignments = assignmentsData.assignments.map((assignment: Assignment) => {
+            const content = materials.find(m => m.id === assignment.contentId);
+            return {
+              ...assignment,
+              content: content || {
+                id: assignment.contentId,
+                title: 'Unknown Content',
+                description: 'Content not found',
+                difficulty: 'unknown',
+                estimated_hours: '0'
+              }
+            };
+          });
+          
+          // アサインメントフィルタリング（インストラクターは同じ部署のみ、管理者は全員）
+          if (userRole === 'instructor') {
+            enrichedAssignments = enrichedAssignments.filter((assignment: Assignment) => {
+              const assignedUser = users.find((user: User) => user.sid === assignment.assignedTo);
+              return assignedUser?.department === userDepartment;
+            });
+            console.log('🏢 [handleDeleteAssignment] Applied instructor filter:', userDepartment, 'Filtered count:', enrichedAssignments.length);
+          }
+          
+          console.log('🗑️ [handleDeleteAssignment] Setting assignments state:', enrichedAssignments);
+          setAssignments(enrichedAssignments);
+          console.log('✅ [handleDeleteAssignment] UI update completed');
+        } else {
+          console.error('❌ [handleDeleteAssignment] Failed to fetch assignments after delete');
+        }
+        alert('アサインメントが削除されました');
+      } else {
+        alert(`エラー: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('アサインメント削除エラー:', error);
+      alert('アサインメントの削除に失敗しました');
+    }
+  };
+
   const handleCreateAssignment = async () => {
     if (!newAssignment.contentId || !newAssignment.assignedTo || !newAssignment.dueDate) {
       alert('必須項目を入力してください');
       return;
     }
 
-    const content = materials.find(m => m.id === newAssignment.contentId);
-    if (!content) return;
+    try {
+      const response = await fetch('/api/assignments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contentId: newAssignment.contentId,
+          assignedTo: newAssignment.assignedTo,
+          assignedBy: 'S-1-5-21-2432060128-2762725120-1584859402-1001', // 管理者
+          dueDate: newAssignment.dueDate,
+          notes: newAssignment.notes,
+          priority: newAssignment.priority
+        }),
+      });
 
-    const assignment: Assignment = {
-      id: `assignment-${Date.now()}`,
-      contentId: newAssignment.contentId,
-      content,
-      assignedTo: newAssignment.assignedTo,
-      assignedBy: 'S-1-5-21-2432060128-2762725120-1584859402-1001',
-      assignedDate: new Date().toISOString(),
-      dueDate: newAssignment.dueDate,
-      status: 'pending',
-      progress: 0,
-      notes: newAssignment.notes,
-      priority: newAssignment.priority
-    };
+      const result = await response.json();
 
-    setAssignments([assignment, ...assignments]);
-    setNewAssignment({ contentId: '', assignedTo: '', dueDate: '', notes: '', priority: 'medium' });
-    setShowCreateForm(false);
+      if (result.success) {
+             // アサインメント一覧を再取得（キャッシュバスティング付き）
+             const assignmentsResponse = await fetch(`/api/assignments?t=${Date.now()}`, {
+               method: 'GET',
+               headers: {
+                 'Cache-Control': 'no-cache',
+                 'Pragma': 'no-cache'
+               }
+             });
+             const assignmentsData = await assignmentsResponse.json();
+        
+        if (assignmentsData.success) {
+          let enrichedAssignments = assignmentsData.assignments.map((assignment: Assignment) => {
+            const content = materials.find(m => m.id === assignment.contentId);
+            return {
+              ...assignment,
+              content: content || {
+                id: assignment.contentId,
+                title: 'Unknown Content',
+                description: 'Content not found',
+                difficulty: 'unknown',
+                estimated_hours: '0'
+              }
+            };
+          });
+          
+          // アサインメントフィルタリング（インストラクターは同じ部署のみ、管理者は全員）
+          if (userRole === 'instructor') {
+            enrichedAssignments = enrichedAssignments.filter((assignment: Assignment) => {
+              const assignedUser = users.find((user: User) => user.sid === assignment.assignedTo);
+              return assignedUser?.department === userDepartment;
+            });
+          }
+          
+          setAssignments(enrichedAssignments);
+        }
+        
+        setNewAssignment({ contentId: '', assignedTo: '', dueDate: '', notes: '', priority: 'medium' });
+        setShowCreateForm(false);
+        alert('アサインメントが作成されました');
+      } else {
+        alert(`エラー: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('アサインメント作成エラー:', error);
+      alert('アサインメントの作成に失敗しました');
+    }
   };
 
   if (loading) {
@@ -218,12 +476,19 @@ export default function Page() {
               
               <div>
                 <label className="block text-sm text-white/70 mb-1">期限</label>
-                <input
-                  type="date"
-                  className="w-full rounded bg-black/20 px-3 py-2 ring-1 ring-white/10 text-white"
-                  value={newAssignment.dueDate}
-                  onChange={(e) => setNewAssignment({...newAssignment, dueDate: e.target.value})}
-                />
+                <div className="relative">
+                  <input
+                    type="date"
+                    className="w-full rounded bg-black/20 px-3 py-2 pr-10 ring-1 ring-white/10 text-white focus:ring-2 focus:ring-brand focus:outline-none"
+                    value={newAssignment.dueDate}
+                    onChange={(e) => setNewAssignment({...newAssignment, dueDate: e.target.value})}
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg className="w-5 h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                </div>
               </div>
               
               <div>
@@ -301,7 +566,7 @@ export default function Page() {
         {/* アサインメント一覧 */}
         <div className="space-y-4">
           {filteredAssignments.map((assignment) => (
-            <div key={assignment.id} className="rounded-lg bg-black/20 p-4 ring-1 ring-white/10 hover:ring-white/20 transition-all">
+            <div key={`${assignment.id}-${refreshKey}`} className="rounded-lg bg-black/20 p-4 ring-1 ring-white/10 hover:ring-white/20 transition-all">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-white mb-2">{assignment.content.title}</h3>
@@ -339,13 +604,28 @@ export default function Page() {
               </div>
               
               <div className="flex gap-2">
-                <button className="px-4 py-2 rounded bg-brand text-white text-sm hover:bg-brand-dark transition-colors">
+                <button 
+                  className="px-4 py-2 rounded bg-brand text-white text-sm hover:bg-brand-dark transition-colors"
+                  onClick={() => handleShowContentDetail(assignment)}
+                >
                   詳細
                 </button>
-                <button className="px-4 py-2 rounded bg-black/40 text-white text-sm hover:bg-white/10 transition-colors">
-                  編集
+                <button 
+                  className="px-4 py-2 rounded bg-black/40 text-white text-sm hover:bg-white/10 transition-colors"
+                  onClick={() => handleUpdateAssignment(assignment.id, { status: 'in_progress' })}
+                >
+                  開始
                 </button>
-                <button className="px-4 py-2 rounded bg-red-500/20 text-red-400 text-sm hover:bg-red-500/30 transition-colors">
+                <button 
+                  className="px-4 py-2 rounded bg-green-500/20 text-green-400 text-sm hover:bg-green-500/30 transition-colors"
+                  onClick={() => handleUpdateAssignment(assignment.id, { status: 'completed', progress: 100 })}
+                >
+                  完了
+                </button>
+                <button 
+                  className="px-4 py-2 rounded bg-red-500/20 text-red-400 text-sm hover:bg-red-500/30 transition-colors"
+                  onClick={() => handleDeleteAssignment(assignment.id)}
+                >
                   削除
                 </button>
               </div>
@@ -387,6 +667,14 @@ export default function Page() {
           <div className="text-sm text-white/70">期限切れ</div>
         </div>
       </div>
+
+      {/* ContentModal */}
+      <ContentModal
+        content={selectedContent}
+        isOpen={isContentModalOpen}
+        onClose={handleCloseContentModal}
+        onProgressUpdate={handleProgressUpdate}
+      />
     </div>
   );
 }

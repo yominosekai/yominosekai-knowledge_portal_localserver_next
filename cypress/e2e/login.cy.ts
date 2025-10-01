@@ -64,3 +64,5 @@ describe('Login Flow', () => {
     cy.get('.text-red-400').should('contain', 'ログインに失敗しました')
   })
 })
+
+

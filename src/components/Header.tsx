@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { NotificationCenter } from './NotificationCenter';
+import { ConnectionStatus } from './ConnectionStatus';
+import { RealTimeNotifications } from './RealTimeNotifications';
+import { ThemeToggle } from './ThemeToggle';
 
 const navItems = [
   { href: '/', label: 'ダッシュボード' },
@@ -74,8 +77,21 @@ export function Header() {
             })}
           </nav>
 
-          {/* 通知センター */}
-          <NotificationCenter />
+          {/* 接続状態表示 */}
+          <ConnectionStatus className="hidden md:flex" />
+
+          {/* テーマ切り替え */}
+          <ThemeToggle />
+
+                 {/* 通知センター */}
+                 <NotificationCenter />
+                 
+                 {/* リアルタイム通知 */}
+                 {user && (
+                   <RealTimeNotifications 
+                     userId={user.sid}
+                   />
+                 )}
 
           {/* ユーザーメニュー */}
           <div className="relative">

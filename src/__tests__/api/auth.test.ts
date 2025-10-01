@@ -74,3 +74,5 @@ describe('/api/auth', () => {
     expect(data.error).toBe('Internal server error')
   })
 })
+
+

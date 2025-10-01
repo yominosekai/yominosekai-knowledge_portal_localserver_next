@@ -112,3 +112,5 @@ describe('Dashboard', () => {
     cy.get('[data-testid="error"]').should('be.visible')
   })
 })
+
+

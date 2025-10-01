@@ -15,16 +15,19 @@ const protectedPaths = [
 // 管理者のみアクセス可能なページ
 const adminOnlyPaths = ['/admin'];
 
+// インストラクター以上がアクセス可能なページ
+const instructorPaths = ['/assignments', '/leaderboard'];
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   console.log(`[Middleware] Processing path: ${pathname}`);
   
-  // ログインページとダッシュボードは認証チェックをスキップ
-  if (pathname === '/login' || pathname === '/') {
-    console.log(`[Middleware] Skipping auth check for: ${pathname}`);
-    return NextResponse.next();
-  }
+        // ダッシュボードは認証チェックをスキップ（自動認証される）
+        if (pathname === '/') {
+          console.log(`[Middleware] Skipping auth check for: ${pathname}`);
+          return NextResponse.next();
+        }
 
   // 保護されたページかチェック
   const isProtectedPath = protectedPaths.some(path => pathname.startsWith(path));
@@ -35,11 +38,11 @@ export function middleware(request: NextRequest) {
     const sessionCookie = request.cookies.get('knowledge_portal_session');
     console.log(`[Middleware] Session cookie exists: ${!!sessionCookie}`);
     
-    if (!sessionCookie) {
-      console.log(`[Middleware] No session cookie, redirecting to login`);
-      // セッションがない場合はログインページにリダイレクト
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
+          if (!sessionCookie) {
+            console.log(`[Middleware] No session cookie, redirecting to dashboard for auto auth`);
+            // セッションがない場合はダッシュボードにリダイレクト（自動認証される）
+            return NextResponse.redirect(new URL('/', request.url));
+          }
 
     try {
       const sessionData = JSON.parse(sessionCookie.value);
@@ -60,12 +63,22 @@ export function middleware(request: NextRequest) {
         // 管理者でない場合はダッシュボードにリダイレクト
         return NextResponse.redirect(new URL('/', request.url));
       }
+
+      // インストラクター以上が必要なページのチェック
+      const isInstructorPath = instructorPaths.some(path => pathname.startsWith(path));
+      console.log(`[Middleware] Is instructor path: ${isInstructorPath}, user role: ${sessionData.role}`);
+      
+      if (isInstructorPath && !['admin', 'instructor'].includes(sessionData.role)) {
+        console.log(`[Middleware] Non-instructor user accessing instructor path, redirecting to dashboard`);
+        // インストラクター以上でない場合はダッシュボードにリダイレクト
+        return NextResponse.redirect(new URL('/', request.url));
+      }
       
       console.log(`[Middleware] Access granted for: ${pathname}`);
     } catch (error) {
       console.log(`[Middleware] Error parsing session data:`, error);
-      // セッションデータが無効な場合はログインページにリダイレクト
-      return NextResponse.redirect(new URL('/login', request.url));
+            // セッションデータが無効な場合はダッシュボードにリダイレクト（自動認証される）
+            return NextResponse.redirect(new URL('/', request.url));
     }
   }
 

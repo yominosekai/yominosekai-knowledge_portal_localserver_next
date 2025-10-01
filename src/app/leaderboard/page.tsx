@@ -34,6 +34,8 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [sortBy, setSortBy] = useState('completionRate');
+  const [userRole, setUserRole] = useState<string>('');
+  const [userDepartment, setUserDepartment] = useState<string>('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,12 +43,23 @@ export default function Page() {
         setLoading(true);
         
         // 認証
-        await apiClient.authenticate();
+        const authResult = await apiClient.authenticate();
+        if (authResult?.user) {
+          setUserRole(authResult.user.role);
+          setUserDepartment(authResult.user.department);
+        }
         
         // ユーザー一覧取得
         const usersResponse = await fetch('/api/admin/users');
         const usersData = await usersResponse.json();
-        setUsers(usersData);
+        
+        // ユーザーフィルタリング（インストラクターは同じ部署のみ、管理者は全員）
+        let filteredUsers = usersData;
+        if (userRole === 'instructor') {
+          filteredUsers = usersData.filter((user: User) => user.department === userDepartment);
+          setSelectedDepartment(userDepartment); // インストラクターの場合は自分の部署をデフォルト選択
+        }
+        setUsers(filteredUsers);
         
         // 各ユーザーの統計を計算
         const stats: UserStats[] = [];

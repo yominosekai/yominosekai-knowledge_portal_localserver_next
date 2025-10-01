@@ -1,0 +1,5 @@
+id,material_id,activity_type,status,start_date,completion_date,score,notes,timestamp
+1,1,study,completed,2025-01-15T10:30:00Z,2025-01-16T15:30:00Z,100,Python基礎を完了しました,2025-01-16T15:30:00Z
+2,2,study,in_progress,2025-01-20T14:45:00Z,,50,Reactの学習を開始,2025-01-20T14:45:00Z
+
+

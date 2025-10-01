@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { apiClient, ProgressData, Material } from '../../lib/api';
+import { AvatarUpload } from '../../components/AvatarUpload';
+import { SkillManager } from '../../components/SkillManager';
+import { LearningHistory } from '../../components/LearningHistory';
 
 interface UserProfile {
   sid: string;
@@ -42,6 +45,7 @@ export default function Page() {
     bio: '',
     skills: [] as string[]
   });
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -211,8 +215,16 @@ export default function Page() {
       <div className="rounded-lg bg-white/5 p-6 ring-1 ring-white/10">
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-brand flex items-center justify-center text-2xl font-bold text-white">
-              {profile.display_name.charAt(0)}
+            <div className="w-20 h-20 rounded-full bg-brand flex items-center justify-center text-2xl font-bold text-white overflow-hidden">
+              {avatarUrl ? (
+                <img 
+                  src={avatarUrl} 
+                  alt="Avatar" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                profile.display_name.charAt(0)
+              )}
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">{profile.display_name}</h1>
@@ -220,18 +232,32 @@ export default function Page() {
               <p className="text-white/50 text-sm">{profile.department} • {profile.role}</p>
             </div>
           </div>
-          <button
-            onClick={() => setIsEditing(!isEditing)}
-            className="px-4 py-2 rounded bg-brand text-white hover:bg-brand-dark transition-colors"
-          >
-            {isEditing ? 'キャンセル' : '編集'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIsEditing(!isEditing)}
+              className="px-4 py-2 rounded bg-brand text-white hover:bg-brand-dark transition-colors"
+            >
+              {isEditing ? 'キャンセル' : '編集'}
+            </button>
+          </div>
         </div>
 
         {/* 編集フォーム */}
         {isEditing && (
           <div className="mb-6 p-4 rounded-lg bg-black/20 ring-1 ring-white/10">
             <h3 className="text-lg font-semibold mb-4">プロフィール編集</h3>
+            
+            {/* アバターアップロード */}
+            <div className="mb-6">
+              <h4 className="text-md font-semibold mb-3">プロフィール画像</h4>
+              <AvatarUpload
+                currentAvatar={avatarUrl}
+                currentInitials={profile.display_name.charAt(0)}
+                onAvatarChange={setAvatarUrl}
+                className="max-w-md"
+              />
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-white/70 mb-1">表示名</label>
@@ -366,8 +392,8 @@ export default function Page() {
       <div className="flex gap-2">
         {[
           { id: 'overview', label: '概要' },
-          { id: 'progress', label: '進捗' },
-          { id: 'activities', label: '活動履歴' },
+          { id: 'skills', label: 'スキル・資格' },
+          { id: 'activities', label: '学習履歴' },
           { id: 'settings', label: '設定' }
         ].map(tab => (
           <button
@@ -497,30 +523,14 @@ export default function Page() {
         </div>
       )}
 
-      {/* 活動履歴タブ */}
+      {/* スキル・資格タブ */}
+      {activeTab === 'skills' && (
+        <SkillManager userId={profile.sid} />
+      )}
+
+      {/* 学習履歴タブ */}
       {activeTab === 'activities' && (
-        <div className="rounded-lg bg-white/5 p-6 ring-1 ring-white/10">
-          <h3 className="text-lg font-semibold mb-4">活動履歴</h3>
-          <div className="space-y-4">
-            {activities.map((activity) => (
-              <div key={activity.id} className="flex items-start gap-4 p-4 rounded bg-black/20">
-                <div className="text-2xl">{getActivityIcon(activity.type)}</div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium text-white">{activity.title}</span>
-                    <span className="px-2 py-1 rounded text-xs bg-brand/20 text-brand">
-                      {getActivityText(activity.type)}
-                    </span>
-                  </div>
-                  <p className="text-sm text-white/70 mb-2">{activity.description}</p>
-                  <p className="text-xs text-white/50">
-                    {new Date(activity.timestamp).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <LearningHistory userId={profile.sid} />
       )}
 
       {/* 設定タブ */}

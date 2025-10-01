@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiClient, ProgressData, Material } from '../../lib/api';
+import { ProgressChart } from '../../components/ProgressChart';
 
 export default function Page() {
   const [progressData, setProgressData] = useState<ProgressData | null>(null);
@@ -88,60 +89,47 @@ export default function Page() {
         {activeTab === 'my-progress' && (
           <div className="space-y-6">
             {/* 進捗サマリー */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="rounded-lg bg-black/20 p-4 text-center">
-                <div className="text-2xl font-bold text-brand mb-1">
-                  {progressData?.summary.completed || 0}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* 数値サマリー */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-lg bg-black/20 p-4 text-center">
+                  <div className="text-2xl font-bold text-brand mb-1">
+                    {progressData?.summary.completed || 0}
+                  </div>
+                  <div className="text-sm text-white/70">完了</div>
                 </div>
-                <div className="text-sm text-white/70">完了</div>
+                <div className="rounded-lg bg-black/20 p-4 text-center">
+                  <div className="text-2xl font-bold text-brand mb-1">
+                    {progressData?.summary.in_progress || 0}
+                  </div>
+                  <div className="text-sm text-white/70">進行中</div>
+                </div>
+                <div className="rounded-lg bg-black/20 p-4 text-center">
+                  <div className="text-2xl font-bold text-brand mb-1">
+                    {progressData?.summary.not_started || 0}
+                  </div>
+                  <div className="text-sm text-white/70">未開始</div>
+                </div>
+                <div className="rounded-lg bg-black/20 p-4 text-center">
+                  <div className="text-2xl font-bold text-brand mb-1">
+                    {progressData?.summary.completion_rate || 0}%
+                  </div>
+                  <div className="text-sm text-white/70">完了率</div>
+                </div>
               </div>
-              <div className="rounded-lg bg-black/20 p-4 text-center">
-                <div className="text-2xl font-bold text-brand mb-1">
-                  {progressData?.summary.in_progress || 0}
-                </div>
-                <div className="text-sm text-white/70">進行中</div>
-              </div>
-              <div className="rounded-lg bg-black/20 p-4 text-center">
-                <div className="text-2xl font-bold text-brand mb-1">
-                  {progressData?.summary.not_started || 0}
-                </div>
-                <div className="text-sm text-white/70">未開始</div>
-              </div>
-              <div className="rounded-lg bg-black/20 p-4 text-center">
-                <div className="text-2xl font-bold text-brand mb-1">
-                  {progressData?.summary.completion_rate || 0}%
-                </div>
-                <div className="text-sm text-white/70">完了率</div>
+              
+              {/* 進捗チャート */}
+              <div className="flex justify-center">
+                <ProgressChart 
+                  data={{
+                    completed: progressData?.summary.completed || 0,
+                    in_progress: progressData?.summary.in_progress || 0,
+                    not_started: progressData?.summary.not_started || 0
+                  }}
+                />
               </div>
             </div>
 
-            {/* 進捗チャート（簡易版） */}
-            <div className="rounded-lg bg-black/20 p-6">
-              <h3 className="text-lg font-semibold mb-4">進捗グラフ</h3>
-              <div className="h-64 flex items-end justify-center space-x-2">
-                <div className="flex flex-col items-center">
-                  <div 
-                    className="w-8 bg-brand rounded-t"
-                    style={{ height: `${(progressData?.summary.completed || 0) * 20}px` }}
-                  ></div>
-                  <span className="text-xs text-white/70 mt-2">完了</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div 
-                    className="w-8 bg-yellow-500 rounded-t"
-                    style={{ height: `${(progressData?.summary.in_progress || 0) * 20}px` }}
-                  ></div>
-                  <span className="text-xs text-white/70 mt-2">進行中</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div 
-                    className="w-8 bg-gray-500 rounded-t"
-                    style={{ height: `${(progressData?.summary.not_started || 0) * 20}px` }}
-                  ></div>
-                  <span className="text-xs text-white/70 mt-2">未開始</span>
-                </div>
-              </div>
-            </div>
 
             {/* 最近の活動 */}
             <div className="rounded-lg bg-black/20 p-6">

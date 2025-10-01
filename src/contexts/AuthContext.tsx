@@ -21,46 +21,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     console.log(`[AuthContext] Initializing authentication context`);
     
-    const sessionManager = SessionManager.getInstance();
-    const sessionUser = sessionManager.getSession();
-    console.log(`[AuthContext] LocalStorage session:`, sessionUser);
-    
-    // クッキーからもセッションを確認
-    let cookieSession = null;
-    if (typeof document !== 'undefined') {
-      const cookies = document.cookie.split(';');
-      console.log(`[AuthContext] All cookies:`, cookies);
+    // 元のアプリケーションのように自動認証を実行（リトライ機能付き）
+    const autoAuthenticate = async () => {
+      const maxRetries = 3;
+      const retryDelay = 1000; // 1秒
       
-      const sessionCookie = cookies.find(cookie => cookie.trim().startsWith('knowledge_portal_session='));
-      console.log(`[AuthContext] Session cookie found:`, !!sessionCookie);
-      
-      if (sessionCookie) {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          const cookieValue = sessionCookie.split('=')[1];
-          cookieSession = JSON.parse(decodeURIComponent(cookieValue));
-          // is_activeを適切に変換
-          if (cookieSession && typeof cookieSession.is_active === 'string') {
-            cookieSession.is_active = cookieSession.is_active === 'true' || cookieSession.is_active === 'True';
+          console.log(`[AuthContext] Auto authentication attempt ${attempt}/${maxRetries}`);
+          console.log(`[AuthContext] Current URL: ${window.location.href}`);
+          console.log(`[AuthContext] Making request to: /api/auth`);
+          
+          const response = await fetch('/api/auth', {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            // タイムアウト設定
+            signal: AbortSignal.timeout(10000), // 10秒タイムアウト
+          });
+          
+          console.log(`[AuthContext] Response status: ${response.status}`);
+          console.log(`[AuthContext] Response ok: ${response.ok}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log(`[AuthContext] Auto authentication response:`, data);
+            
+            if (data.success && data.user) {
+              console.log(`[AuthContext] Auto authentication successful:`, data.user);
+              setUser(data.user);
+              
+              // セッションを保存
+              const sessionManager = SessionManager.getInstance();
+              sessionManager.setSession(data.user);
+              
+              // クッキーにも保存
+              if (typeof document !== 'undefined') {
+                document.cookie = `knowledge_portal_session=${encodeURIComponent(JSON.stringify(data.user))}; path=/; max-age=86400`;
+              }
+              
+              setIsLoading(false);
+              return; // 成功したら終了
+            } else {
+              console.error(`[AuthContext] Auto authentication failed:`, data.error || 'Unknown error');
+              console.error(`[AuthContext] Response data:`, data);
+            }
+          } else {
+            console.error(`[AuthContext] Auto authentication request failed:`, response.status);
+            const errorData = await response.text();
+            console.error(`[AuthContext] Error response:`, errorData);
           }
-          console.log(`[AuthContext] Cookie session parsed:`, cookieSession);
-        } catch (e) {
-          console.error(`[AuthContext] Error parsing cookie session:`, e);
+        } catch (error) {
+          console.error(`[AuthContext] Auto authentication attempt ${attempt} error:`, error);
+          
+          // 最後の試行でない場合は待機
+          if (attempt < maxRetries) {
+            console.log(`[AuthContext] Retrying in ${retryDelay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          }
         }
       }
-    }
+      
+      console.log(`[AuthContext] Auto authentication failed after all retries`);
+      setIsLoading(false);
+    };
     
-    const activeSession = sessionUser || cookieSession;
-    console.log(`[AuthContext] Active session:`, activeSession);
-    
-    if (activeSession && sessionManager.isSessionValid()) {
-      console.log(`[AuthContext] Valid session found, setting user`);
-      setUser(activeSession);
-    } else {
-      console.log(`[AuthContext] No valid session, clearing session`);
-      sessionManager.clearSession();
-    }
-    
-    setIsLoading(false);
+    autoAuthenticate();
   }, []);
 
   const login = async (sid: string): Promise<void> => {

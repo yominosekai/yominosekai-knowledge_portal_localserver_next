@@ -4,7 +4,7 @@ import { getAllCategories } from '../../../lib/data';
 export async function GET(request: NextRequest) {
   try {
     const categories = await getAllCategories();
-    return NextResponse.json(categories);
+    return NextResponse.json({ success: true, categories });
   } catch (error) {
     console.error('Categories GET error:', error);
     return NextResponse.json(

@@ -135,3 +135,5 @@ Cypress.Commands.add('closeModal', () => {
   cy.get('[data-testid="modal-close"]').click()
   cy.get('[data-testid="modal"]').should('not.exist')
 })
+
+
