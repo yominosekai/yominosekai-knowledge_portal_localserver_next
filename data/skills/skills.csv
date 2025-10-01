@@ -1,0 +1,22 @@
+id,name,description,category_id,level,prerequisites
+1,Python Programming,Python language proficiency,12,1,
+2,Python Advanced,Advanced Python concepts,12,2,1
+3,Python Expert,Expert-level Python development,12,3,2
+4,HTML5,HTML5 markup language,2,1,
+5,CSS3,CSS3 styling and layout,2,1,
+6,JavaScript,JavaScript programming,2,1,
+7,React.js,React.js framework,2,2,6
+8,Node.js,Node.js server development,2,2,6
+9,SQL,Structured Query Language,3,1,
+10,PostgreSQL,PostgreSQL database,3,2,9
+11,Docker,Container technology,4,2,
+12,Kubernetes,Container orchestration,4,3,11
+13,Network Security,Network security concepts,6,1,
+14,Application Security,Application security,7,2,
+15,AWS Basics,Amazon Web Services basics,9,1,
+16,AWS Advanced,Advanced AWS services,9,2,15
+17,Azure Basics,Microsoft Azure basics,10,1,
+18,Data Analysis,Data analysis techniques,12,2,
+19,Machine Learning,ML algorithms and models,12,3,18
+20,Agile Methodology,Agile project management,15,1,
+21,Scrum Framework,Scrum methodology,16,2,20
