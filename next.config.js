@@ -74,6 +74,18 @@ const nextConfig = {
         removeEmptyChunks: false,
         splitChunks: false,
       };
+      
+      // モジュール解決の最適化（キャッシュ問題を回避）
+      config.resolve = {
+        ...config.resolve,
+        alias: {
+          ...config.resolve?.alias,
+          // 絶対パスでの解決
+          '@': require('path').resolve(__dirname, 'src'),
+        },
+        // モジュール解決のキャッシュを無効化
+        cache: false,
+      };
     }
 
     // エラーハンドリングの改善
