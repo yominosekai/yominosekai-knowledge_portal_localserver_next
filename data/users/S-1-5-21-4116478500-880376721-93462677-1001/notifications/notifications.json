@@ -1,0 +1,15 @@
+[
+  {
+    "id": "assignment_1759477605786_scpu07llc",
+    "type": "assignment",
+    "title": "新しい学習指示が割り当てられました",
+    "message": "「学習指示」が割り当てられました。期限: 2025/10/15",
+    "timestamp": "2025-10-03T07:46:45.814Z",
+    "read": false,
+    "actionUrl": "/learning-tasks",
+    "actionText": "確認する",
+    "assignedBy": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+    "assignmentId": "assignment_1759477605635_msezrtm33",
+    "userId": "S-1-5-21-4116478500-880376721-93462677-1001"
+  }
+]

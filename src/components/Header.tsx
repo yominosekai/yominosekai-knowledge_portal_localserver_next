@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,17 +12,31 @@ const navItems = [
   { href: '/', label: 'ダッシュボード' },
   { href: '/content', label: 'コンテンツ' },
   { href: '/progress', label: '進捗' },
-  { href: '/leaderboard', label: 'リーダーボード' },
+  { href: '/leaderboard', label: 'リーダーボード', instructorOnly: true },
   { href: '/learning-tasks', label: '学習課題' },
-  { href: '/assignments', label: '学習指示' },
+  { href: '/assignments', label: '学習指示', instructorOnly: true },
   { href: '/admin', label: '管理', adminOnly: true },
   { href: '/profile', label: 'プロフィール' },
 ];
 
-export function Header() {
+function Header() {
   const pathname = usePathname();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // 認証状態の初期化中はローディング表示
+  if (isLoading) {
+    return (
+      <header className="bg-gradient-to-r from-brand to-brand-dark text-white">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex items-center justify-between gap-4 flex-wrap py-3">
+            <div className="text-2xl font-bold">Knowledge Portal</div>
+            <div className="text-white/70">読み込み中...</div>
+          </div>
+        </div>
+      </header>
+    );
+  }
 
   const handleLogout = () => {
     logout();
@@ -57,8 +71,12 @@ export function Header() {
           
           <nav className="hidden md:flex flex-wrap items-center gap-2">
             {navItems.map((item) => {
-              if (item.adminOnly && user?.role !== 'admin') return null;
-              
+              if (item.adminOnly && user?.role !== 'admin') {
+                return null;
+              }
+              if (item.instructorOnly && !['admin', 'instructor'].includes(user?.role || '')) {
+                return null;
+              }
               const active = pathname === item.href;
               return (
                 <Link
@@ -140,8 +158,18 @@ export function Header() {
           <div className="md:hidden mt-4 pb-4 border-t border-white/10 pt-4">
             <nav className="flex flex-col space-y-2">
               {navItems.map((item) => {
-                if (item.adminOnly && user?.role !== 'admin') return null;
+                console.log(`[Header Mobile Debug] Checking item: ${item.label}, adminOnly: ${item.adminOnly}, instructorOnly: ${item.instructorOnly}, user role: ${user?.role}`);
                 
+                if (item.adminOnly && user?.role !== 'admin') {
+                  console.log(`[Header Mobile Debug] Hiding ${item.label} - admin only, user role: ${user?.role}`);
+                  return null;
+                }
+                if (item.instructorOnly && !['admin', 'instructor'].includes(user?.role || '')) {
+                  console.log(`[Header Mobile Debug] Hiding ${item.label} - instructor only, user role: ${user?.role}`);
+                  return null;
+                }
+                
+                console.log(`[Header Mobile Debug] Showing ${item.label}`);
                 const active = pathname === item.href;
                 return (
                   <Link
@@ -169,3 +197,6 @@ export function Header() {
     </header>
   );
 }
+
+const MemoizedHeader = memo(Header);
+export default MemoizedHeader;

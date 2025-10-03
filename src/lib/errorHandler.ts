@@ -163,9 +163,11 @@ export class GlobalErrorHandler {
         const data = await response.json();
         if (data.success && data.user) {
           console.log('[GlobalErrorHandler] Auto auth retry successful');
-          // セッションを再設定
+          // セッションを再設定（SessionManagerを使用）
           if (typeof document !== 'undefined') {
-            document.cookie = `knowledge_portal_session=${encodeURIComponent(JSON.stringify(data.user))}; path=/; max-age=86400`;
+            const { SessionManager } = await import('./auth');
+            const sessionManager = SessionManager.getInstance();
+            sessionManager.setSession(data.user);
           }
         }
       }

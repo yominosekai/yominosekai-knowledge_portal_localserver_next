@@ -54,13 +54,27 @@ const nextConfig = {
       };
     }
 
-    // キャッシュの最適化
-    config.cache = {
-      type: 'filesystem',
-      buildDependencies: {
-        config: [__filename],
-      },
-    };
+    // キャッシュの最適化（開発時は無効化）
+    if (dev) {
+      config.cache = false;
+    } else {
+      config.cache = {
+        type: 'filesystem',
+        buildDependencies: {
+          config: [__filename],
+        },
+      };
+    }
+
+    // HMRの競合を解決するための設定
+    if (dev) {
+      config.optimization = {
+        ...config.optimization,
+        removeAvailableModules: false,
+        removeEmptyChunks: false,
+        splitChunks: false,
+      };
+    }
 
     // エラーハンドリングの改善
     config.resolve.fallback = {
@@ -124,7 +138,9 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value: process.env.NODE_ENV === 'development' 
+              ? 'no-cache, no-store, must-revalidate' 
+              : 'public, max-age=31536000, immutable',
           },
         ],
       },
@@ -185,6 +201,14 @@ const nextConfig = {
   // 開発サーバー設定
   devIndicators: {
     position: 'bottom-right',
+  },
+
+  // HMRとキャッシュの競合を解決するための設定
+  onDemandEntries: {
+    // ページがメモリに保持される時間（ミリ秒）
+    maxInactiveAge: 25 * 1000,
+    // 同時に保持されるページ数
+    pagesBufferLength: 2,
   },
 
   // ログレベル

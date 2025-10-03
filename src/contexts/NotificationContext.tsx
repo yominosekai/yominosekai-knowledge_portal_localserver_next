@@ -56,6 +56,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   // 通知をサーバーから取得（接続状態も同時にチェック）
   const fetchNotifications = useCallback(async () => {
+    console.log(`[認証ループ調査] fetchNotifications 実行開始`);
     try {
       setIsLoading(true);
       setDebugInfo(prev => ({
@@ -132,6 +133,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       }));
       console.error('[NotificationContext] Error fetching notifications:', error);
     } finally {
+      console.log(`[認証ループ調査] fetchNotifications 完了`);
       setIsLoading(false);
     }
   }, []);
@@ -181,35 +183,45 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   // 認証が完了した後に通知を読み込み
   useEffect(() => {
+    console.log(`[認証ループ調査] NotificationContext useEffect 実行`);
+    console.log(`[認証ループ調査] isAuthenticated:`, isAuthenticated);
+    console.log(`[認証ループ調査] user:`, user);
+    console.log(`[認証ループ調査] fetchNotifications関数:`, typeof fetchNotifications);
+    
     if (isAuthenticated && user) {
-      console.log(`[NotificationContext] User authenticated, fetching notifications for: ${user.sid}`);
+      console.log(`[認証ループ調査] 認証済み、通知取得開始`);
       fetchNotifications();
       
       // Windows通知の許可をリクエスト
       requestNotificationPermission();
     } else {
-      console.log(`[NotificationContext] User not authenticated yet, skipping notification fetch`);
+      console.log(`[認証ループ調査] 未認証、通知取得スキップ`);
     }
-  }, [isAuthenticated, user, fetchNotifications, requestNotificationPermission]);
+  }, [isAuthenticated, user]); // fetchNotificationsとrequestNotificationPermissionを依存関係から除外
 
   // ポーリング機能（30秒間隔で通知をチェック）
   useEffect(() => {
+    console.log(`[認証ループ調査] ポーリングuseEffect 実行`);
+    console.log(`[認証ループ調査] isAuthenticated:`, isAuthenticated);
+    console.log(`[認証ループ調査] user:`, user);
+    
     if (!isAuthenticated || !user) {
+      console.log(`[認証ループ調査] ポーリングスキップ（未認証）`);
       return;
     }
 
-    console.log(`[NotificationContext] Starting polling for user: ${user.sid}`);
+    console.log(`[認証ループ調査] ポーリング開始`);
     
-    const pollInterval = setInterval(() => {
-      console.log(`[NotificationContext] Polling notifications...`);
-      fetchNotifications();
-    }, 30000); // 30秒間隔
+           const pollInterval = setInterval(() => {
+             console.log(`[NotificationContext] Polling notifications...`);
+             fetchNotifications();
+           }, 30000); // 30秒間隔
 
     return () => {
-      console.log(`[NotificationContext] Stopping polling`);
+      console.log(`[認証ループ調査] ポーリング停止`);
       clearInterval(pollInterval);
     };
-  }, [isAuthenticated, user, fetchNotifications]);
+  }, [isAuthenticated, user]); // fetchNotificationsを依存関係から除外
 
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
     const newNotification: Notification = {

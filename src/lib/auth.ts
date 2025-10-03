@@ -37,7 +37,7 @@ export function validateSID(sid: string): boolean {
   return sidPattern.test(sid);
 }
 
-// セッション管理
+// セッション管理（Cookieベースに統一）
 export class SessionManager {
   private static instance: SessionManager;
   private sessionKey = 'knowledge_portal_session';
@@ -51,7 +51,9 @@ export class SessionManager {
 
   setSession(user: User): void {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(this.sessionKey, JSON.stringify(user));
+      const cookieValue = encodeURIComponent(JSON.stringify(user));
+      document.cookie = `${this.sessionKey}=${cookieValue}; path=/; max-age=86400; SameSite=Lax`;
+      console.log(`[SessionManager] Session cookie set for user: ${user.username}`);
     }
   }
 
@@ -59,16 +61,30 @@ export class SessionManager {
     if (typeof window === 'undefined') return null;
     
     try {
-      const sessionData = localStorage.getItem(this.sessionKey);
-      return sessionData ? JSON.parse(sessionData) : null;
-    } catch {
+      const cookies = document.cookie.split(';');
+      const sessionCookie = cookies.find(cookie => 
+        cookie.trim().startsWith(`${this.sessionKey}=`)
+      );
+      
+      if (!sessionCookie) {
+        console.log(`[SessionManager] No session cookie found`);
+        return null;
+      }
+      
+      const cookieValue = sessionCookie.split('=')[1];
+      const user = JSON.parse(decodeURIComponent(cookieValue));
+      console.log(`[SessionManager] Session restored for user: ${user.username}`);
+      return user;
+    } catch (error) {
+      console.error(`[SessionManager] Error parsing session cookie:`, error);
       return null;
     }
   }
 
   clearSession(): void {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(this.sessionKey);
+      document.cookie = `${this.sessionKey}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+      console.log(`[SessionManager] Session cookie cleared`);
     }
   }
 

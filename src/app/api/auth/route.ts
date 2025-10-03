@@ -1,16 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserData, updateUserData } from '../../../lib/data';
 
-// デモ用の固定SID（実際の環境では環境変数や設定ファイルから取得）
-const DEMO_SID = 'S-1-5-21-2432060128-2762725120-1584859402-1001';
+// 実際のWindows環境からSIDを取得する関数
+async function getCurrentUserSID(): Promise<string | null> {
+  try {
+    // Windowsのwhoamiコマンドを実行してSIDを取得
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const execAsync = promisify(exec);
+    
+    const { stdout } = await execAsync('whoami /user');
+    const sidMatch = stdout.match(/S-1-5-21-\d+-\d+-\d+-\d+/);
+    
+    if (sidMatch) {
+      console.log(`[getCurrentUserSID] Found SID: ${sidMatch[0]}`);
+      return sidMatch[0];
+    } else {
+      console.log(`[getCurrentUserSID] No SID found in output: ${stdout}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`[getCurrentUserSID] Error getting SID:`, error);
+    return null;
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
-    console.log(`[Auth GET] Starting authentication process`);
+    console.log(`[Auth GET] ===== 認証API開始 =====`);
+    console.log(`[Auth GET] リクエスト時刻:`, new Date().toISOString());
+    console.log(`[Auth GET] リクエストURL:`, request.url);
+    console.log(`[Auth GET] リクエストヘッダー:`, Object.fromEntries(request.headers.entries()));
+    console.log(`[Auth GET] リクエストIP:`, request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown');
+    console.log(`[Auth GET] リクエストUser-Agent:`, request.headers.get('user-agent'));
+    console.log(`[Auth GET] スタックトレース:`, new Error().stack);
     
-    // 元のアプリケーションのように、自動でSIDを取得して認証
-    // 実際の環境では、ここでWindows認証やSSOからSIDを取得
-    const sid = DEMO_SID;
+    // 実際のWindows環境からSIDを取得
+    const sid = await getCurrentUserSID();
+    
+    if (!sid) {
+      console.log(`[Auth GET] Could not get SID from Windows environment`);
+      return NextResponse.json(
+        { success: false, error: 'Could not get user SID' },
+        { status: 500 }
+      );
+    }
+    
     console.log(`[Auth GET] Using SID: ${sid}`);
     
     // ユーザーデータを取得（Zドライブ優先、存在しない場合は新規作成）
@@ -72,13 +107,21 @@ export async function POST(request: NextRequest) {
       const body = await request.json();
       sid = body.sid;
     } catch (error) {
-      // 空のリクエストボディの場合はデモ用SIDを使用
-      sid = DEMO_SID;
+      // 空のリクエストボディの場合は現在のユーザーSIDを取得
+      sid = await getCurrentUserSID();
     }
     
     if (!sid) {
-      console.log(`[Auth POST] No SID provided, using demo SID`);
-      sid = DEMO_SID;
+      console.log(`[Auth POST] No SID provided, getting current user SID`);
+      sid = await getCurrentUserSID();
+    }
+    
+    if (!sid) {
+      console.log(`[Auth POST] Could not get SID from Windows environment`);
+      return NextResponse.json(
+        { success: false, error: 'Could not get user SID' },
+        { status: 500 }
+      );
     }
     
     console.log(`[Auth POST] Using SID: ${sid}`);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, SessionManager, checkPermission } from '../lib/auth';
 
 interface AuthContextType {
@@ -17,12 +17,48 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const hasAttemptedAuthRef = useRef(false);
 
+  // セッション復元のためのuseEffect（初回のみ実行）
   useEffect(() => {
-    console.log(`[AuthContext] Initializing authentication context`);
+    console.log(`[認証ループ調査] ===== セッション復元開始 =====`);
+    console.log(`[認証ループ調査] 現在のuser状態:`, user);
+    console.log(`[認証ループ調査] 現在のisLoading状態:`, isLoading);
+    console.log(`[認証ループ調査] hasAttemptedAuthRef.current:`, hasAttemptedAuthRef.current);
     
-    // 元のアプリケーションのように自動認証を実行（リトライ機能付き）
+    // 既に認証済みの場合はスキップ
+    if (user) {
+      console.log(`[認証ループ調査] 既に認証済み、セッション復元をスキップ`);
+      return;
+    }
+    
+    // 既に認証試行済みの場合はスキップ
+    if (hasAttemptedAuthRef.current) {
+      console.log(`[認証ループ調査] 認証試行済み、スキップ`);
+      return;
+    }
+    
+    // 既存のセッションをチェック
+    const sessionManager = SessionManager.getInstance();
+    const existingSession = sessionManager.getSession();
+    
+    if (existingSession && sessionManager.isSessionValid()) {
+      console.log(`[認証ループ調査] 既存セッションを復元:`, existingSession.username);
+      hasAttemptedAuthRef.current = true;
+      
+      // 状態更新をバッチ処理
+      React.startTransition(() => {
+        setUser(existingSession);
+        setIsLoading(false);
+      });
+      return;
+    }
+    
+    // セッションがない場合は自動認証を実行
     const autoAuthenticate = async () => {
+      console.log(`[認証ループ調査] ===== 自動認証処理開始 =====`);
+      hasAttemptedAuthRef.current = true;
+      
       const maxRetries = 5;
       const retryDelay = 2000; // 2秒
       
@@ -32,8 +68,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           console.log(`[AuthContext] Auto authentication attempt ${attempt}/${maxRetries}`);
-          console.log(`[AuthContext] Current URL: ${window.location.href}`);
-          console.log(`[AuthContext] Making request to: /api/auth`);
           
           const response = await fetch('/api/auth', {
             method: 'GET',
@@ -42,53 +76,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               'Cache-Control': 'no-cache',
               'Pragma': 'no-cache',
             },
-            // タイムアウト設定
-            signal: AbortSignal.timeout(15000), // 15秒タイムアウト
+            signal: AbortSignal.timeout(15000),
           });
-          
-          console.log(`[AuthContext] Response status: ${response.status}`);
-          console.log(`[AuthContext] Response ok: ${response.ok}`);
           
           if (response.ok) {
             const data = await response.json();
-            console.log(`[AuthContext] Auto authentication response:`, data);
             
             if (data.success && data.user) {
-              console.log(`[AuthContext] Auto authentication successful:`, data.user);
-              setUser(data.user);
+              console.log(`[認証ループ調査] 認証成功`);
               
-              // セッションを保存
-              const sessionManager = SessionManager.getInstance();
+              // セッションを保存（SessionManagerを使用）
               sessionManager.setSession(data.user);
               
-              // クッキーにも保存
-              if (typeof document !== 'undefined') {
-                document.cookie = `knowledge_portal_session=${encodeURIComponent(JSON.stringify(data.user))}; path=/; max-age=86400`;
-              }
+              // 状態更新をバッチ処理
+              React.startTransition(() => {
+                setUser(data.user);
+                setIsLoading(false);
+              });
               
-              setIsLoading(false);
               return; // 成功したら終了
-            } else {
-              console.error(`[AuthContext] Auto authentication failed:`, data.error || 'Unknown error');
-              console.error(`[AuthContext] Response data:`, data);
             }
-          } else if (response.status === 500) {
-            // サーバーエラーの場合は少し待ってからリトライ
-            console.log(`[AuthContext] Server error (500), waiting before retry...`);
-            throw new Error(`Server error: ${response.status}`);
-          } else {
-            console.error(`[AuthContext] Auto authentication request failed:`, response.status);
-            const errorData = await response.text();
-            console.error(`[AuthContext] Error response:`, errorData);
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
         } catch (error) {
           console.error(`[AuthContext] Auto authentication attempt ${attempt} error:`, error);
           
           // 最後の試行でない場合は待機
           if (attempt < maxRetries) {
-            const waitTime = retryDelay * attempt; // 指数バックオフ
-            console.log(`[AuthContext] Waiting ${waitTime}ms before retry...`);
+            const waitTime = retryDelay * attempt;
             await new Promise(resolve => setTimeout(resolve, waitTime));
           }
         }
@@ -99,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     
     autoAuthenticate();
-  }, []);
+  }, []); // 初回のみ実行
 
   const login = async (sid: string): Promise<void> => {
     console.log(`[AuthContext] Login attempt with SID: ${sid}`);
@@ -131,14 +145,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const sessionManager = SessionManager.getInstance();
       sessionManager.setSession(user);
-      setUser(user);
       
-      // セッションクッキーを設定
-      if (typeof document !== 'undefined') {
-        const cookieValue = JSON.stringify(user);
-        document.cookie = `knowledge_portal_session=${cookieValue}; path=/; max-age=86400; SameSite=Lax`;
-        console.log(`[AuthContext] Session cookie set:`, cookieValue);
-      }
+      // 状態更新をバッチ処理
+      React.startTransition(() => {
+        setUser(user);
+      });
       
       console.log(`[AuthContext] Login successful for user: ${user.display_name}`);
     } catch (error) {
@@ -150,12 +161,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = (): void => {
     const sessionManager = SessionManager.getInstance();
     sessionManager.clearSession();
-    setUser(null);
     
-    // セッションクッキーを削除
-    if (typeof document !== 'undefined') {
-      document.cookie = 'knowledge_portal_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    }
+    // 状態更新をバッチ処理
+    React.startTransition(() => {
+      setUser(null);
+    });
   };
 
   const checkUserPermission = (permission: string): boolean => {

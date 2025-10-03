@@ -102,11 +102,19 @@ class ApiClient {
 
   // 進捗データ取得
   async getProgress(userId: string): Promise<ProgressData> {
-    return this.request<ProgressData>(`/api/progress/${userId}`);
+    console.log(`[API調査] getProgress 呼び出し開始:`, userId);
+    console.log(`[API調査] getProgress 呼び出し時刻:`, new Date().toISOString());
+    console.log(`[API調査] getProgress スタックトレース:`, new Error().stack);
+    const result = await this.request<ProgressData>(`/api/progress/${userId}`);
+    console.log(`[API調査] getProgress 完了:`, result);
+    return result;
   }
 
   // コンテンツ一覧取得
   async getContent(): Promise<Material[]> {
+    console.log(`[API調査] getContent 呼び出し開始`);
+    console.log(`[API調査] getContent 呼び出し時刻:`, new Date().toISOString());
+    console.log(`[API調査] getContent スタックトレース:`, new Error().stack);
     try {
       const response = await this.request<any>('/api/content');
       console.log('Content API response:', response);

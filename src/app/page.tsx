@@ -1,29 +1,49 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { apiClient, ProgressData, Material } from '../lib/api';
 
 export default function Page() {
+  const { user, isLoading: authLoading } = useAuth();
   const [progressData, setProgressData] = useState<ProgressData | null>(null);
   const [recentMaterials, setRecentMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log(`[ページ調査] ===== Page useEffect 開始 =====`);
+    console.log(`[ページ調査] 現在のuser状態:`, user);
+    console.log(`[ページ調査] 現在のauthLoading状態:`, authLoading);
+    console.log(`[ページ調査] 現在のloading状態:`, loading);
+    console.log(`[ページ調査] コンポーネントマウント時刻:`, new Date().toISOString());
+    console.log(`[ページ調査] スタックトレース:`, new Error().stack);
+    
     const fetchData = async () => {
+      console.log(`[ページ調査] fetchData 関数開始`);
+      console.log(`[ページ調査] authLoading:`, authLoading);
+      console.log(`[ページ調査] user:`, user);
+      
+      // 認証が完了するまで待機
+      if (authLoading || !user) {
+        console.log(`[ページ調査] 認証待機中またはユーザーなし、スキップ`);
+        return;
+      }
+
       try {
+        console.log(`[ページ調査] データ取得開始`);
         setLoading(true);
         
-        // 認証
-        await apiClient.authenticate();
-        
-        // 進捗データ取得（仮のユーザーIDを使用）
-        const userId = 'S-1-5-21-2432060128-2762725120-1584859402-1001';
-        const progress = await apiClient.getProgress(userId);
+        // 進捗データ取得
+        console.log(`[ページ調査] 進捗データ取得開始:`, user.sid);
+        const progress = await apiClient.getProgress(user.sid);
+        console.log(`[ページ調査] 進捗データ取得完了:`, progress);
         setProgressData(progress);
         
         // コンテンツ一覧取得
+        console.log(`[ページ調査] コンテンツ一覧取得開始`);
         const materials = await apiClient.getContent();
+        console.log(`[ページ調査] コンテンツ一覧取得完了:`, materials);
         setRecentMaterials(Array.isArray(materials) ? materials.slice(0, 5) : []);
         
       } catch (err) {
@@ -35,12 +55,17 @@ export default function Page() {
     };
 
     fetchData();
-  }, []);
+  }, [user, authLoading]);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
-        <div className="text-white/70">データを読み込み中...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mx-auto mb-4"></div>
+          <div className="text-white/70">
+            {authLoading ? '認証中...' : 'データを読み込み中...'}
+          </div>
+        </div>
       </div>
     );
   }
