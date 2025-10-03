@@ -1,28 +1,28 @@
 [
   {
-    "id": "assignment_1759461202246_w0aitqfn9",
+    "id": "assignment_1759462866005_tntmmvfqr",
     "type": "assignment",
     "title": "新しい学習指示が割り当てられました",
-    "message": "「学習指示」が割り当てられました。期限: 2025/10/3",
-    "timestamp": "2025-10-03T03:13:22.246Z",
+    "message": "「学習指示」が割り当てられました。期限: 2025/10/21",
+    "timestamp": "2025-10-03T03:41:06.011Z",
     "read": false,
     "actionUrl": "/learning-tasks",
     "actionText": "確認する",
     "assignedBy": "S-1-5-21-2432060128-2762725120-1584859402-1001",
-    "assignmentId": "assignment_1759461202113_jl4oby2vk",
+    "assignmentId": "assignment_1759462865850_9astfmrsk",
     "userId": "S-1-5-21-2432060128-2762725120-1584859402-1001"
   },
   {
-    "id": "assignment_1759461502984_jl98gynff",
+    "id": "assignment_1759463188919_80i41hb6e",
     "type": "assignment",
     "title": "新しい学習指示が割り当てられました",
-    "message": "「学習指示」が割り当てられました。期限: 2025/10/29",
-    "timestamp": "2025-10-03T03:18:22.989Z",
+    "message": "「学習指示」が割り当てられました。期限: 2025/10/31",
+    "timestamp": "2025-10-03T03:46:28.923Z",
     "read": false,
     "actionUrl": "/learning-tasks",
     "actionText": "確認する",
     "assignedBy": "S-1-5-21-2432060128-2762725120-1584859402-1001",
-    "assignmentId": "assignment_1759461502835_ot0vwlv48",
+    "assignmentId": "assignment_1759463188780_7kf2fkn3g",
     "userId": "S-1-5-21-2432060128-2762725120-1584859402-1001"
   }
 ]

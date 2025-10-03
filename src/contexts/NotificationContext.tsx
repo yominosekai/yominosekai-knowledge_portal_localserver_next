@@ -54,7 +54,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     apiResponse: null as any,
   });
 
-  // 通知をサーバーから取得
+  // 通知をサーバーから取得（接続状態も同時にチェック）
   const fetchNotifications = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -70,6 +70,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         headers: {
           'Content-Type': 'application/json',
         },
+        signal: AbortSignal.timeout(5000) // 5秒でタイムアウト
       });
 
       const responseData = await response.json();
