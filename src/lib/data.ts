@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
+import { fileLockManager } from './fileLockManager';
 
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
@@ -9,6 +10,20 @@ const mkdir = promisify(fs.mkdir);
 // データディレクトリのパス（Zドライブを優先）
 const Z_DRIVE_PATH = 'Z:\\knowledge_portal';
 const DATA_DIR = path.join(process.cwd(), 'data');
+
+// 通知データの型定義
+export interface Notification {
+  id: string;
+  type: 'assignment' | 'info' | 'success' | 'warning' | 'error';
+  title: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+  actionUrl?: string;
+  actionText?: string;
+  assignedBy?: string;
+  assignmentId?: string;
+}
 
 // データディレクトリを確実に作成
 async function ensureDataDir() {
@@ -1005,6 +1020,21 @@ export interface Assignment {
   updated_date: string;
 }
 
+// 学習進捗関連の型定義
+export interface UserLearningProgress {
+  userId: string;
+  contentId: string;
+  status: 'not_started' | 'in_progress' | 'completed';
+  progress: number; // 0-100
+  isFavorite: boolean;
+  isAssigned: boolean; // アサインメントかどうか
+  startedAt?: string;
+  completedAt?: string;
+  lastAccessedAt: string;
+  notes?: string; // ユーザーのメモ
+  rating?: number; // 1-5の評価
+}
+
 // ユーザーのアサインメントディレクトリパスを取得
 function getUserAssignmentsPath(userId: string, isZDrive: boolean = true): string {
   if (isZDrive) {
@@ -1032,12 +1062,23 @@ export async function getUserAssignments(userId: string): Promise<Assignment[]> 
     
     if (fs.existsSync(zAssignmentsPath)) {
       console.log(`[getUserAssignments] Found assignments file on Z drive`);
-      const content = await readFile(zAssignmentsPath, 'utf-8');
-      assignments = JSON.parse(content);
-      console.log(`[getUserAssignments] Found ${assignments.length} assignments on Z drive`);
-      
-      // ローカルにもコピー（フォールバック用）
-      await syncAssignmentsToLocal(userId, assignments);
+      try {
+        const content = await readFile(zAssignmentsPath, 'utf-8');
+        if (content.trim()) {
+          assignments = JSON.parse(content);
+          console.log(`[getUserAssignments] Found ${assignments.length} assignments on Z drive`);
+          
+          // ローカルにもコピー（フォールバック用）
+          await syncAssignmentsToLocal(userId, assignments);
+        } else {
+          console.log(`[getUserAssignments] Z drive file is empty, trying local fallback`);
+          assignments = [];
+        }
+      } catch (error) {
+        console.error(`[getUserAssignments] Error parsing Z drive JSON:`, error);
+        console.log(`[getUserAssignments] Trying local fallback`);
+        assignments = [];
+      }
     } else {
       // Zドライブにない場合はローカルから取得
       console.log(`[getUserAssignments] Z drive assignments not found, trying local`);
@@ -1045,34 +1086,27 @@ export async function getUserAssignments(userId: string): Promise<Assignment[]> 
       
       if (fs.existsSync(localAssignmentsPath)) {
         console.log(`[getUserAssignments] Found local assignments file`);
-        const content = await readFile(localAssignmentsPath, 'utf-8');
-        assignments = JSON.parse(content);
-        console.log(`[getUserAssignments] Found ${assignments.length} assignments locally`);
+        try {
+          const content = await readFile(localAssignmentsPath, 'utf-8');
+          if (content.trim()) {
+            assignments = JSON.parse(content);
+            console.log(`[getUserAssignments] Found ${assignments.length} assignments locally`);
+          } else {
+            console.log(`[getUserAssignments] Local file is empty`);
+            assignments = [];
+          }
+        } catch (error) {
+          console.error(`[getUserAssignments] Error parsing local JSON:`, error);
+          assignments = [];
+        }
       } else {
         console.log(`[getUserAssignments] No assignments file found anywhere`);
         return [];
       }
     }
     
-    // 期限切れチェックと自動更新
-    const updatedAssignments = assignments.map(checkOverdueStatus);
-    
-    // 期限切れになったアサインメントがある場合は保存
-    const overdueAssignments = updatedAssignments.filter((assignment, index) => 
-      assignment.status === 'overdue' && assignments[index].status !== 'overdue'
-    );
-    
-    if (overdueAssignments.length > 0) {
-      console.log(`[getUserAssignments] Found ${overdueAssignments.length} overdue assignments for user ${userId}, updating...`);
-      
-      // 期限切れアサインメントを更新
-      for (const assignment of overdueAssignments) {
-        await updateAssignment(userId, assignment.id, { 
-          status: 'overdue',
-          updated_date: new Date().toISOString()
-        });
-      }
-    }
+    // 期限切れチェック（表示用のみ、ファイル更新なし）
+    const updatedAssignments = assignments.map(checkOverdueStatusDisplayOnly);
     
     return updatedAssignments;
   } catch (error) {
@@ -1100,7 +1134,7 @@ async function syncAssignmentsToLocal(userId: string, assignments: Assignment[])
   }
 }
 
-// アサインメントを作成
+// アサインメントを作成（排他制御付き）
 export async function createAssignment(assignment: Omit<Assignment, 'id' | 'created_date' | 'updated_date'>): Promise<{ success: boolean; assignment?: Assignment; error?: string }> {
   try {
     console.log(`[createAssignment] Creating assignment for user: ${assignment.assignedTo}`);
@@ -1115,28 +1149,23 @@ export async function createAssignment(assignment: Omit<Assignment, 'id' | 'crea
       updated_date: new Date().toISOString()
     };
     
-    // 既存のアサインメントを取得
-    const existingAssignments = await getUserAssignments(assignment.assignedTo);
+    // 排他制御で学習指示を作成
+    await fileLockManager.withLock(assignment.assignedTo, async () => {
+      // 既存のアサインメントを安全に取得
+      const existingAssignments = await fileLockManager.readAssignmentsSafely(assignment.assignedTo);
+      
+      // 新しいアサインメントを追加
+      const updatedAssignments = [...existingAssignments, newAssignment];
+      
+      // Zドライブに安全に保存
+      await fileLockManager.writeAssignmentsSafely(assignment.assignedTo, updatedAssignments);
+      
+      // ローカルにも同期
+      await syncAssignmentsToLocal(assignment.assignedTo, updatedAssignments);
+      
+      console.log(`[createAssignment] Created assignment: ${assignmentId} for user: ${assignment.assignedTo}`);
+    });
     
-    // 新しいアサインメントを追加
-    const updatedAssignments = [...existingAssignments, newAssignment];
-    
-    // Zドライブに保存
-    const zAssignmentsPath = getUserAssignmentsFilePath(assignment.assignedTo, true);
-    const zAssignmentsDir = path.dirname(zAssignmentsPath);
-    
-    // Zドライブディレクトリを作成
-    if (!fs.existsSync(zAssignmentsDir)) {
-      await mkdir(zAssignmentsDir, { recursive: true });
-    }
-    
-    await writeFile(zAssignmentsPath, JSON.stringify(updatedAssignments, null, 2), 'utf-8');
-    console.log(`[createAssignment] Saved assignment to Z drive: ${zAssignmentsPath}`);
-    
-    // ローカルにも同期
-    await syncAssignmentsToLocal(assignment.assignedTo, updatedAssignments);
-    
-    console.log(`[createAssignment] Created assignment: ${assignmentId}`);
     return { success: true, assignment: newAssignment };
   } catch (error) {
     console.error(`[createAssignment] Error creating assignment:`, error);
@@ -1144,80 +1173,95 @@ export async function createAssignment(assignment: Omit<Assignment, 'id' | 'crea
   }
 }
 
-// アサインメントを更新
+// アサインメントを更新（排他制御付き）
 export async function updateAssignment(userId: string, assignmentId: string, updates: Partial<Assignment>): Promise<{ success: boolean; assignment?: Assignment; error?: string }> {
   try {
     console.log(`[updateAssignment] Updating assignment: ${assignmentId} for user: ${userId}`);
     
-    const assignments = await getUserAssignments(userId);
-    const assignmentIndex = assignments.findIndex(a => a.id === assignmentId);
+    // 排他制御で学習指示を更新
+    let result: { success: boolean; assignment?: Assignment; error?: string };
+    await fileLockManager.withLock(userId, async () => {
+      const assignments = await fileLockManager.readAssignmentsSafely(userId);
+      const assignmentIndex = assignments.findIndex(a => a.id === assignmentId);
+      
+      if (assignmentIndex === -1) {
+        result = { success: false, error: 'Assignment not found' };
+        return;
+      }
+      
+      // アサインメントを更新
+      const updatedAssignment = {
+        ...assignments[assignmentIndex],
+        ...updates,
+        updated_date: new Date().toISOString()
+      };
+      
+      assignments[assignmentIndex] = updatedAssignment;
+      
+      // Zドライブに安全に保存
+      await fileLockManager.writeAssignmentsSafely(userId, assignments);
+      
+      // ローカルにも同期
+      await syncAssignmentsToLocal(userId, assignments);
+      
+      console.log(`[updateAssignment] Updated assignment: ${assignmentId}`);
+      result = { success: true, assignment: updatedAssignment };
+    });
     
-    if (assignmentIndex === -1) {
-      return { success: false, error: 'Assignment not found' };
-    }
-    
-    // アサインメントを更新
-    const updatedAssignment = {
-      ...assignments[assignmentIndex],
-      ...updates,
-      updated_date: new Date().toISOString()
-    };
-    
-    assignments[assignmentIndex] = updatedAssignment;
-    
-    // Zドライブに保存
-    const zAssignmentsPath = getUserAssignmentsFilePath(userId, true);
-    await writeFile(zAssignmentsPath, JSON.stringify(assignments, null, 2), 'utf-8');
-    
-    // ローカルにも同期
-    await syncAssignmentsToLocal(userId, assignments);
-    
-    console.log(`[updateAssignment] Updated assignment: ${assignmentId}`);
-    return { success: true, assignment: updatedAssignment };
+    return result;
   } catch (error) {
     console.error(`[updateAssignment] Error updating assignment:`, error);
     return { success: false, error: error.message };
   }
 }
 
-// アサインメントを削除
+// アサインメントを削除（排他制御付き）
 export async function deleteAssignment(userId: string, assignmentId: string): Promise<{ success: boolean; error?: string }> {
   try {
     console.log(`[deleteAssignment] Deleting assignment: ${assignmentId} for user: ${userId}`);
     
-    const assignments = await getUserAssignments(userId);
-    const filteredAssignments = assignments.filter(a => a.id !== assignmentId);
+    // 排他制御で学習指示を削除
+    let result: { success: boolean; error?: string };
+    await fileLockManager.withLock(userId, async () => {
+      const assignments = await fileLockManager.readAssignmentsSafely(userId);
+      const filteredAssignments = assignments.filter(a => a.id !== assignmentId);
+      
+      if (assignments.length === filteredAssignments.length) {
+        result = { success: false, error: 'Assignment not found' };
+        return;
+      }
+      
+      // Zドライブに安全に保存
+      await fileLockManager.writeAssignmentsSafely(userId, filteredAssignments);
+      
+      // ローカルにも同期
+      await syncAssignmentsToLocal(userId, filteredAssignments);
+      
+      console.log(`[deleteAssignment] Deleted assignment: ${assignmentId}`);
+      result = { success: true };
+    });
     
-    if (assignments.length === filteredAssignments.length) {
-      return { success: false, error: 'Assignment not found' };
-    }
-    
-    // Zドライブに保存
-    const zAssignmentsPath = getUserAssignmentsFilePath(userId, true);
-    await writeFile(zAssignmentsPath, JSON.stringify(filteredAssignments, null, 2), 'utf-8');
-    
-    // ローカルにも同期
-    await syncAssignmentsToLocal(userId, filteredAssignments);
-    
-    console.log(`[deleteAssignment] Deleted assignment: ${assignmentId}`);
-    return { success: true };
+    return result;
   } catch (error) {
     console.error(`[deleteAssignment] Error deleting assignment:`, error);
     return { success: false, error: error.message };
   }
 }
 
-// 期限切れ判定ロジック
-function checkOverdueStatus(assignment: Assignment): Assignment {
-  const today = new Date();
+// 期限切れ判定ロジック（表示用のみ、ファイル更新なし）
+function checkOverdueStatusDisplayOnly(assignment: Assignment): Assignment {
+  const now = new Date();
   const dueDate = new Date(assignment.dueDate);
   
-  // 期限切れかつ未完了の場合のみステータスを更新
-  if (dueDate < today && assignment.status !== 'completed') {
+  // 期限日を23:59:59まで有効とする
+  dueDate.setHours(23, 59, 59, 999);
+  
+  // 期限切れかつ未完了の場合のみ表示用ステータスを更新（ファイル更新なし）
+  if (now > dueDate && assignment.status !== 'completed') {
     return {
       ...assignment,
-      status: 'overdue',
-      updated_date: new Date().toISOString()
+      status: 'overdue'
+      // updated_dateは更新しない（ファイル更新を防ぐため）
     };
   }
   
@@ -1237,30 +1281,350 @@ export async function getAllAssignments(): Promise<Assignment[]> {
       allAssignments.push(...userAssignments);
     }
     
-    // 期限切れチェックと自動更新
-    const updatedAssignments = allAssignments.map(checkOverdueStatus);
-    
-    // 期限切れになったアサインメントがある場合は保存
-    const overdueAssignments = updatedAssignments.filter((assignment, index) => 
-      assignment.status === 'overdue' && allAssignments[index].status !== 'overdue'
-    );
-    
-    if (overdueAssignments.length > 0) {
-      console.log(`[getAllAssignments] Found ${overdueAssignments.length} overdue assignments, updating...`);
-      
-      // 各ユーザーの期限切れアサインメントを更新
-      for (const assignment of overdueAssignments) {
-        await updateAssignment(assignment.assignedTo, assignment.id, { 
-          status: 'overdue',
-          updated_date: new Date().toISOString()
-        });
-      }
-    }
+    // 期限切れチェック（表示用のみ、ファイル更新なし）
+    const updatedAssignments = allAssignments.map(checkOverdueStatusDisplayOnly);
     
     console.log(`[getAllAssignments] Found ${updatedAssignments.length} total assignments`);
     return updatedAssignments;
   } catch (error) {
     console.error(`[getAllAssignments] Error getting all assignments:`, error);
     return [];
+  }
+}
+
+// ===== 学習進捗機能 =====
+
+// ユーザーの学習進捗ファイルパスを取得
+function getUserLearningProgressPath(userId: string, isZDrive: boolean = true): string {
+  if (isZDrive) {
+    return path.join(Z_DRIVE_PATH, 'users', userId, 'learning-progress.json');
+  } else {
+    return path.join(DATA_DIR, 'users', userId, 'learning-progress.json');
+  }
+}
+
+// ユーザーの学習進捗を取得（Zドライブ優先、ローカルフォールバック）
+export async function getUserLearningProgress(userId: string): Promise<UserLearningProgress[]> {
+  try {
+    console.log(`[getUserLearningProgress] Getting learning progress for user: ${userId}`);
+    
+    // Zドライブから取得を試行
+    const zProgressPath = getUserLearningProgressPath(userId, true);
+    console.log(`[getUserLearningProgress] Z drive progress path: ${zProgressPath}`);
+    
+    let progress: UserLearningProgress[] = [];
+    
+    if (fs.existsSync(zProgressPath)) {
+      console.log(`[getUserLearningProgress] Found progress file on Z drive`);
+      const content = await readFile(zProgressPath, 'utf-8');
+      progress = JSON.parse(content);
+      console.log(`[getUserLearningProgress] Found ${progress.length} progress entries on Z drive`);
+      
+      // ローカルにもコピー（フォールバック用）
+      await syncLearningProgressToLocal(userId, progress);
+    } else {
+      // Zドライブにない場合はローカルから取得
+      console.log(`[getUserLearningProgress] Z drive progress not found, trying local`);
+      const localProgressPath = getUserLearningProgressPath(userId, false);
+      
+      if (fs.existsSync(localProgressPath)) {
+        console.log(`[getUserLearningProgress] Found local progress file`);
+        const content = await readFile(localProgressPath, 'utf-8');
+        progress = JSON.parse(content);
+        console.log(`[getUserLearningProgress] Found ${progress.length} progress entries locally`);
+      } else {
+        console.log(`[getUserLearningProgress] No progress file found anywhere`);
+        return [];
+      }
+    }
+    
+    return progress;
+  } catch (error) {
+    console.error(`[getUserLearningProgress] Error getting learning progress:`, error);
+    return [];
+  }
+}
+
+// 学習進捗をローカルに同期
+async function syncLearningProgressToLocal(userId: string, progress: UserLearningProgress[]): Promise<void> {
+  try {
+    const localDir = path.join(DATA_DIR, 'users', userId);
+    await mkdir(localDir, { recursive: true });
+    
+    const localPath = getUserLearningProgressPath(userId, false);
+    await writeFile(localPath, JSON.stringify(progress, null, 2), 'utf-8');
+    
+    console.log(`[syncLearningProgressToLocal] Synced ${progress.length} progress entries to local`);
+  } catch (error) {
+    console.error(`[syncLearningProgressToLocal] Error syncing to local:`, error);
+  }
+}
+
+// 学習進捗を更新
+export async function updateUserLearningProgress(userId: string, contentId: string, updatedProgress: UserLearningProgress): Promise<void> {
+  try {
+    console.log(`[updateUserLearningProgress] Updating progress for user: ${userId}, content: ${contentId}`);
+    
+    const progress = await getUserLearningProgress(userId);
+    const index = progress.findIndex(p => p.contentId === contentId);
+    
+    if (index !== -1) {
+      progress[index] = updatedProgress;
+    } else {
+      progress.push(updatedProgress);
+    }
+    
+    // Zドライブに保存
+    const zDir = path.join(Z_DRIVE_PATH, 'users', userId);
+    await mkdir(zDir, { recursive: true });
+    
+    const zPath = getUserLearningProgressPath(userId, true);
+    await writeFile(zPath, JSON.stringify(progress, null, 2), 'utf-8');
+    
+    // ローカルにも同期
+    await syncLearningProgressToLocal(userId, progress);
+    
+    console.log(`[updateUserLearningProgress] Successfully updated progress`);
+  } catch (error) {
+    console.error(`[updateUserLearningProgress] Error updating progress:`, error);
+    throw error;
+  }
+}
+
+// 新しい学習進捗を作成
+export async function createUserLearningProgress(newProgress: UserLearningProgress): Promise<void> {
+  try {
+    console.log(`[createUserLearningProgress] Creating new progress for user: ${newProgress.userId}, content: ${newProgress.contentId}`);
+    
+    const progress = await getUserLearningProgress(newProgress.userId);
+    
+    // 既存のエントリがあるかチェック
+    const existingIndex = progress.findIndex(p => p.contentId === newProgress.contentId);
+    
+    if (existingIndex !== -1) {
+      // 既存のエントリを更新
+      progress[existingIndex] = newProgress;
+    } else {
+      // 新しいエントリを追加
+      progress.push(newProgress);
+    }
+    
+    // Zドライブに保存
+    const zDir = path.join(Z_DRIVE_PATH, 'users', newProgress.userId);
+    await mkdir(zDir, { recursive: true });
+    
+    const zPath = getUserLearningProgressPath(newProgress.userId, true);
+    await writeFile(zPath, JSON.stringify(progress, null, 2), 'utf-8');
+    
+    // ローカルにも同期
+    await syncLearningProgressToLocal(newProgress.userId, progress);
+    
+    console.log(`[createUserLearningProgress] Successfully created progress`);
+  } catch (error) {
+    console.error(`[createUserLearningProgress] Error creating progress:`, error);
+    throw error;
+  }
+}
+
+// 学習進捗を削除
+export async function deleteUserLearningProgress(userId: string, contentId: string): Promise<void> {
+  try {
+    console.log(`[deleteUserLearningProgress] Deleting progress for user: ${userId}, content: ${contentId}`);
+    
+    const progress = await getUserLearningProgress(userId);
+    const filteredProgress = progress.filter(p => p.contentId !== contentId);
+    
+    if (filteredProgress.length === progress.length) {
+      console.log(`[deleteUserLearningProgress] No progress found to delete`);
+      return;
+    }
+    
+    // Zドライブに保存
+    const zDir = path.join(Z_DRIVE_PATH, 'users', userId);
+    await mkdir(zDir, { recursive: true });
+    
+    const zPath = getUserLearningProgressPath(userId, true);
+    await writeFile(zPath, JSON.stringify(filteredProgress, null, 2), 'utf-8');
+    
+    // ローカルにも同期
+    await syncLearningProgressToLocal(userId, filteredProgress);
+    
+    console.log(`[deleteUserLearningProgress] Successfully deleted progress`);
+  } catch (error) {
+    console.error(`[deleteUserLearningProgress] Error deleting progress:`, error);
+    throw error;
+  }
+}
+
+// ==================== 通知管理機能 ====================
+
+// ユーザーの通知ファイルパスを取得
+export function getUserNotificationsPath(userId: string, isZDrive: boolean = true): string {
+  if (isZDrive) {
+    return path.join(Z_DRIVE_PATH, 'users', userId, 'notifications', 'notifications.json');
+  } else {
+    return path.join(DATA_DIR, 'users', userId, 'notifications', 'notifications.json');
+  }
+}
+
+// ユーザーの通知を取得
+export async function getUserNotifications(userId: string): Promise<Notification[]> {
+  try {
+    console.log(`[getUserNotifications] Getting notifications for user: ${userId}`);
+    
+    // Zドライブを優先
+    const zNotificationsPath = getUserNotificationsPath(userId, true);
+    let notifications: Notification[] = [];
+    
+    if (fs.existsSync(zNotificationsPath)) {
+      console.log(`[getUserNotifications] Found notifications file on Z drive`);
+      const content = await readFile(zNotificationsPath, 'utf-8');
+      
+      if (content.trim()) {
+        notifications = JSON.parse(content);
+        console.log(`[getUserNotifications] Found ${notifications.length} notifications on Z drive`);
+      } else {
+        console.log(`[getUserNotifications] Z drive notifications file is empty`);
+      }
+    } else {
+      console.log(`[getUserNotifications] No notifications file found on Z drive`);
+    }
+    
+    // ローカルにも同期（フォールバック用）
+    if (notifications.length > 0) {
+      await syncNotificationsToLocal(userId, notifications);
+    }
+    
+    return notifications;
+  } catch (error) {
+    console.error(`[getUserNotifications] Error getting notifications:`, error);
+    return [];
+  }
+}
+
+// 通知をローカルに同期
+async function syncNotificationsToLocal(userId: string, notifications: Notification[]): Promise<void> {
+  try {
+    const localDir = path.join(DATA_DIR, 'users', userId, 'notifications');
+    await mkdir(localDir, { recursive: true });
+    
+    const localPath = getUserNotificationsPath(userId, false);
+    await writeFile(localPath, JSON.stringify(notifications, null, 2), 'utf-8');
+    
+    console.log(`[syncNotificationsToLocal] Synced ${notifications.length} notifications to local`);
+  } catch (error) {
+    console.error(`[syncNotificationsToLocal] Error syncing notifications:`, error);
+  }
+}
+
+// 通知を作成（排他制御付き）
+export async function createNotification(notification: Notification): Promise<void> {
+  try {
+    console.log(`[createNotification] Creating notification: ${notification.id} for user: ${notification.userId}`);
+    
+    if (!notification.userId) {
+      throw new Error('Notification userId is required');
+    }
+    
+    // 排他制御で通知を作成
+    await fileLockManager.withLock(notification.userId, async () => {
+      const notifications = await fileLockManager.readNotificationsSafely(notification.userId);
+      notifications.push(notification);
+      
+      // Zドライブに安全に保存
+      await fileLockManager.writeNotificationsSafely(notification.userId, notifications);
+      
+      // ローカルにも同期
+      await syncNotificationsToLocal(notification.userId, notifications);
+      
+      console.log(`[createNotification] Successfully created notification: ${notification.id} for user: ${notification.userId}`);
+    });
+  } catch (error) {
+    console.error(`[createNotification] Error creating notification:`, error);
+    throw error;
+  }
+}
+
+// 通知を既読にする（排他制御付き）
+export async function markNotificationAsRead(userId: string, notificationId: string): Promise<void> {
+  try {
+    console.log(`[markNotificationAsRead] Marking notification as read: ${notificationId}`);
+    
+    // 排他制御で通知を既読にする
+    await fileLockManager.withLock(userId, async () => {
+      const notifications = await fileLockManager.readNotificationsSafely(userId);
+      const updatedNotifications = notifications.map(n => 
+        n.id === notificationId ? { ...n, read: true } : n
+      );
+      
+      // Zドライブに安全に保存
+      await fileLockManager.writeNotificationsSafely(userId, updatedNotifications);
+      
+      // ローカルにも同期
+      await syncNotificationsToLocal(userId, updatedNotifications);
+      
+      console.log(`[markNotificationAsRead] Successfully marked notification as read: ${notificationId}`);
+    });
+  } catch (error) {
+    console.error(`[markNotificationAsRead] Error marking notification as read:`, error);
+    throw error;
+  }
+}
+
+// 通知を削除（排他制御付き）
+export async function deleteNotification(userId: string, notificationId: string): Promise<void> {
+  try {
+    console.log(`[deleteNotification] Deleting notification: ${notificationId}`);
+    
+    // 排他制御で通知を削除
+    await fileLockManager.withLock(userId, async () => {
+      const notifications = await fileLockManager.readNotificationsSafely(userId);
+      const filteredNotifications = notifications.filter(n => n.id !== notificationId);
+      
+      // Zドライブに安全に保存
+      await fileLockManager.writeNotificationsSafely(userId, filteredNotifications);
+      
+      // ローカルにも同期
+      await syncNotificationsToLocal(userId, filteredNotifications);
+      
+      console.log(`[deleteNotification] Successfully deleted notification: ${notificationId}`);
+    });
+  } catch (error) {
+    console.error(`[deleteNotification] Error deleting notification:`, error);
+    throw error;
+  }
+}
+
+// 学習指示通知を作成
+export async function createAssignmentNotification(
+  assignedTo: string, 
+  assignedBy: string, 
+  assignmentTitle: string, 
+  dueDate: string,
+  assignmentId: string
+): Promise<void> {
+  try {
+    console.log(`[createAssignmentNotification] Creating assignment notification for user: ${assignedTo}`);
+    
+    const notification: Notification = {
+      id: `assignment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'assignment',
+      title: '新しい学習指示が割り当てられました',
+      message: `「${assignmentTitle}」が割り当てられました。期限: ${new Date(dueDate).toLocaleDateString('ja-JP')}`,
+      timestamp: new Date().toISOString(),
+      read: false,
+      actionUrl: '/learning-tasks',
+      actionText: '確認する',
+      assignedBy: assignedBy,
+      assignmentId: assignmentId,
+      userId: assignedTo  // 重要: userIdを設定
+    };
+    
+    await createNotification(notification);
+    
+    console.log(`[createAssignmentNotification] Successfully created assignment notification: ${notification.id}`);
+  } catch (error) {
+    console.error(`[createAssignmentNotification] Error creating assignment notification:`, error);
+    throw error;
   }
 }

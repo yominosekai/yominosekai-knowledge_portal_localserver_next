@@ -23,8 +23,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     // 元のアプリケーションのように自動認証を実行（リトライ機能付き）
     const autoAuthenticate = async () => {
-      const maxRetries = 3;
-      const retryDelay = 1000; // 1秒
+      const maxRetries = 5;
+      const retryDelay = 2000; // 2秒
+      
+      // サーバー起動待機（初回のみ）
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -36,9 +39,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache',
             },
             // タイムアウト設定
-            signal: AbortSignal.timeout(10000), // 10秒タイムアウト
+            signal: AbortSignal.timeout(15000), // 15秒タイムアウト
           });
           
           console.log(`[AuthContext] Response status: ${response.status}`);
@@ -67,18 +72,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               console.error(`[AuthContext] Auto authentication failed:`, data.error || 'Unknown error');
               console.error(`[AuthContext] Response data:`, data);
             }
+          } else if (response.status === 500) {
+            // サーバーエラーの場合は少し待ってからリトライ
+            console.log(`[AuthContext] Server error (500), waiting before retry...`);
+            throw new Error(`Server error: ${response.status}`);
           } else {
             console.error(`[AuthContext] Auto authentication request failed:`, response.status);
             const errorData = await response.text();
             console.error(`[AuthContext] Error response:`, errorData);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
         } catch (error) {
           console.error(`[AuthContext] Auto authentication attempt ${attempt} error:`, error);
           
           // 最後の試行でない場合は待機
           if (attempt < maxRetries) {
-            console.log(`[AuthContext] Retrying in ${retryDelay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            const waitTime = retryDelay * attempt; // 指数バックオフ
+            console.log(`[AuthContext] Waiting ${waitTime}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
           }
         }
       }
