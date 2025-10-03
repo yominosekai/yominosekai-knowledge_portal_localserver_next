@@ -49,11 +49,11 @@ export default function Page() {
     const material = 'content' in content ? content.content : content;
     
     const contentForModal = {
-      id: material.id,
-      title: material.title,
-      description: material.description,
-      difficulty: material.difficulty,
-      estimated_hours: material.estimated_hours,
+      id: (material as Material).id,
+      title: (material as Material).title,
+      description: (material as Material).description,
+      difficulty: (material as Material).difficulty,
+      estimated_hours: (material as Material).estimated_hours,
       type: 'material' // ContentModalで必要なフィールド
     };
     

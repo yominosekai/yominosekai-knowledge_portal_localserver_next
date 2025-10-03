@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserAssignments, createAssignment } from '../../../lib/data';
+import { getUserAssignments, createAssignment } from '@/lib/data';
 
 // 特定ユーザーのアサインメントを取得
 export async function GET(

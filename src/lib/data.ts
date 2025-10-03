@@ -23,6 +23,7 @@ export interface Notification {
   actionText?: string;
   assignedBy?: string;
   assignmentId?: string;
+  userId?: string; // 通知の受信者ID
 }
 
 // データディレクトリを確実に作成

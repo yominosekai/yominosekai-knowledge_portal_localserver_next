@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Assignment, Material } from '../../../lib/data';
+import { Assignment } from '../../../lib/data';
+import { Material } from '../../../lib/api';
 import { apiClient } from '../../../lib/api';
 import { ContentModal } from '../../../components/ContentModal';
 
@@ -133,8 +134,8 @@ export function AssignmentTab({
   const filteredAssignments = assignments.filter(assignment => {
     const matchesStatus = filterStatus === 'all' || assignment.status === filterStatus;
     const matchesSearch = searchTerm === '' || 
-      assignment.content.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      assignment.content.description.toLowerCase().includes(searchTerm.toLowerCase());
+      '学習指示'.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      '学習指示の詳細'.toLowerCase().includes(searchTerm.toLowerCase());
     
     return matchesStatus && matchesSearch;
   });
@@ -260,7 +261,7 @@ export function AssignmentTab({
             <div className="flex gap-2">
               <button 
                 className="px-4 py-2 rounded bg-brand text-white text-sm hover:bg-brand-dark transition-colors"
-                onClick={() => onOpenContentModal(content)}
+                onClick={() => onShowContentDetail(assignment)}
               >
                 詳細
               </button>
@@ -315,7 +316,7 @@ export function AssignmentTab({
         content={selectedContent}
         isOpen={isContentModalOpen}
         onClose={onCloseContentModal}
-        onProgressUpdate={onProgressUpdate}
+        onProgressUpdate={(contentId: string, status: string) => onProgressUpdate(contentId, 100, status)}
       />
     </div>
   );

@@ -136,7 +136,7 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
       
       // 基本情報を追加
       Object.entries(formData).forEach(([key, value]) => {
-        formDataToSend.append(key, value);
+        formDataToSend.append(key, String(value));
       });
       
       // ファイルを追加

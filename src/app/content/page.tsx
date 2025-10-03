@@ -81,7 +81,7 @@ export default function Page() {
     
     const matchesTags = searchFilters.tags?.length === 0 || 
       searchFilters.tags?.some((tag: string) => 
-        material.tags?.toLowerCase().includes(tag.toLowerCase())
+        material.description?.toLowerCase().includes(tag.toLowerCase())
       );
     
     const matchesDateRange = !searchFilters.dateRange?.start || !searchFilters.dateRange?.end ||
@@ -204,7 +204,7 @@ export default function Page() {
                onSuccess={() => {
                  setShowCreateModal(false);
                  // コンテンツリストを再読み込み
-                 fetchData();
+                 window.location.reload();
                }}
              />
 

@@ -85,7 +85,7 @@ class MemoryCache<T> {
 }
 
 // Global cache instance
-const globalCache = new MemoryCache();
+const globalCache = new MemoryCache<any>();
 
 export function useCache<T>(
   key: string,
@@ -100,8 +100,8 @@ export function useCache<T>(
     // Check cache first
     const cachedData = globalCache.get(key);
     if (cachedData) {
-      setData(cachedData);
-      return cachedData;
+      setData(cachedData as T);
+      return cachedData as T;
     }
 
     // Fetch from source

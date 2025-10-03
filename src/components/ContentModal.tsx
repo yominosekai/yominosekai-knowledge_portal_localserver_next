@@ -11,7 +11,7 @@ interface ContentModalProps {
   onProgressUpdate?: (contentId: string, status: string) => void;
 }
 
-export function ContentModal({ content, isOpen, onClose, onProgressUpdate }: ContentModalProps) {
+export function ContentModal({ content, isOpen, onClose, onProgressUpdate }: ContentModalProps): React.ReactElement | null {
   const { user } = useAuth();
   const { resolvedTheme } = useTheme();
   const [currentStatus, setCurrentStatus] = useState<string>('not_started');
@@ -217,7 +217,9 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate }: Con
     }
   };
 
-  if (!isOpen || !content) return null;
+  if (!isOpen || !content) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
@@ -311,7 +313,6 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate }: Con
             </div>
             
             {/* 添付ファイル */}
-            {console.log('ContentModal - Rendering attachments:', attachments)}
             {attachments && attachments.length > 0 ? (
               <div className={`${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'} p-4 rounded-lg`}>
                 <h3 className={`text-lg font-semibold ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'} mb-3`}>📎 添付ファイル</h3>

@@ -147,12 +147,12 @@ export function ContentSearchEngineComponent({
 
     setLoading(true);
     try {
-      const searchOptions: SearchOptions = {
+      const currentSearchOptions: SearchOptions = {
         ...searchOptions,
         query: searchQuery
       };
 
-      const searchResults = searchEngine.search(searchOptions);
+      const searchResults = searchEngine.search(currentSearchOptions);
       setResults(searchResults);
       
       if (onSearchResult) {

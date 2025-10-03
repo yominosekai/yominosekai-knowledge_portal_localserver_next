@@ -369,7 +369,7 @@ export function MyLearningTab({
         content={selectedContent}
         isOpen={isContentModalOpen}
         onClose={onCloseContentModal}
-        onProgressUpdate={onProgressUpdate}
+        onProgressUpdate={(contentId: string, status: string) => onProgressUpdate(contentId, 100, status)}
       />
     </div>
   );

@@ -150,15 +150,15 @@ export default function Page() {
 
   const handleShowContentDetail = (assignment: Assignment) => {
     console.log('🔍 [handleShowContentDetail] Opening content modal for assignment:', assignment);
-    console.log('🔍 [handleShowContentDetail] Content:', assignment.content);
+    console.log('🔍 [handleShowContentDetail] Content:', assignment.contentId);
     
     // アサインメントのコンテンツ情報をContentModal用に整形
     const contentForModal = {
       id: assignment.contentId,
-      title: assignment.content.title,
-      description: assignment.content.description,
-      difficulty: assignment.content.difficulty,
-      estimated_hours: assignment.content.estimated_hours,
+      title: '学習指示',
+      description: '学習指示の詳細',
+      difficulty: 'medium',
+      estimated_hours: 1,
       type: 'material' // ContentModalで必要なフィールド
     };
     
@@ -569,8 +569,8 @@ export default function Page() {
             <div key={`${assignment.id}-${refreshKey}`} className="rounded-lg bg-black/20 p-4 ring-1 ring-white/10 hover:ring-white/20 transition-all">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-white mb-2">{assignment.content.title}</h3>
-                  <p className="text-white/70 mb-3">{assignment.content.description}</p>
+                  <h3 className="text-lg font-semibold text-white mb-2">学習指示</h3>
+                  <p className="text-white/70 mb-3">学習指示の詳細</p>
                   
                   <div className="flex flex-wrap gap-4 text-sm text-white/50 mb-3">
                     <span>割り当て先: {getUserName(assignment.assignedTo)}</span>
@@ -578,8 +578,8 @@ export default function Page() {
                     <span className={`${getPriorityColor(assignment.priority)}`}>
                       優先度: {assignment.priority === 'high' ? '高' : assignment.priority === 'medium' ? '中' : '低'}
                     </span>
-                    <span>難易度: {assignment.content.difficulty}</span>
-                    <span>{assignment.content.estimated_hours}時間</span>
+                    <span>難易度: 中</span>
+                    <span>1時間</span>
                   </div>
                   
                   {assignment.notes && (

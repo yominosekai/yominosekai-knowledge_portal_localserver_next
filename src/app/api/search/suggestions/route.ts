@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllContent } from '../../../lib/data';
+import { getAllContent } from '@/lib/data';
 
 export async function GET(request: NextRequest) {
   try {

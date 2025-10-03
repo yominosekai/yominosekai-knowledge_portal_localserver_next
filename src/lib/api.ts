@@ -46,6 +46,25 @@ export interface Category {
   level: number;
 }
 
+export interface User {
+  sid: string;
+  username: string;
+  display_name: string;
+  email: string;
+  role: string;
+  department: string;
+  is_active: string;
+  last_login: string;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  description: string;
+  manager_id: string;
+  created_date: string;
+}
+
 class ApiClient {
   private baseUrl: string;
 

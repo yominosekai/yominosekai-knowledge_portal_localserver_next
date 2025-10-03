@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readJSON, writeJSON } from '../../../../../lib/data';
+import { readJSON, writeJSON } from '@/lib/data';
 
 export async function PUT(
   request: NextRequest,

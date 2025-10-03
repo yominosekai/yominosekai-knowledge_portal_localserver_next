@@ -67,7 +67,7 @@ export function AdvancedSearchFilters({
     setFilters(prev => ({
       ...prev,
       [parentField]: {
-        ...prev[parentField as keyof SearchFilters],
+        ...(prev[parentField as keyof SearchFilters] as any),
         [childField]: value
       }
     }));

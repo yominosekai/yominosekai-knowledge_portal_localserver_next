@@ -22,6 +22,18 @@ const nextConfig = {
 
   // バンドル分析とキャッシュ最適化
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+    // Cypressファイルをビルドから除外
+    config.module.rules.push({
+      test: /cypress\/.*\.(ts|tsx|js|jsx)$/,
+      use: 'null-loader',
+    });
+
+    // Cypressディレクトリを完全に除外
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'cypress': false,
+    };
+
     // バンドルサイズの最適化
     if (!dev && !isServer) {
       config.optimization.splitChunks = {
@@ -159,6 +171,7 @@ const nextConfig = {
     // 本番ビルド時にESLintエラーを無視
     ignoreDuringBuilds: false,
   },
+
 
   // トレーリングスラッシュ
   trailingSlash: false,

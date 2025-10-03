@@ -67,7 +67,7 @@ export async function POST(
       return NextResponse.json({ 
         success: true, 
         message: 'Progress updated successfully',
-        data: result.data 
+        activity: result.activity 
       });
     } else {
       return NextResponse.json(

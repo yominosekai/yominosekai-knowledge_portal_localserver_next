@@ -3,6 +3,7 @@
 export interface ParsedFile {
   fieldname: string;
   originalname: string;
+  filename: string; // ファイル名（originalnameと同じ）
   encoding: string;
   mimetype: string;
   buffer: Buffer;
@@ -37,7 +38,7 @@ export class MultipartParser {
       const part = this.parsePart();
       if (!part) break;
 
-      if (part.filename) {
+      if ('filename' in part) {
         files.push(part as ParsedFile);
       } else {
         fields.push(part as ParsedField);
@@ -70,6 +71,7 @@ export class MultipartParser {
       return {
         fieldname: headers.name,
         originalname: headers.filename,
+        filename: headers.filename,
         encoding: headers.encoding || '7bit',
         mimetype: headers['content-type'] || 'application/octet-stream',
         buffer: content,
