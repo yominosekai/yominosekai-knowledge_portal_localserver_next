@@ -60,6 +60,40 @@ export async function POST(request: NextRequest) {
     
     if (result.success) {
       console.log(`[Assignments POST] Created assignment: ${result.assignment?.id}`);
+      
+      // 学習指示作成時に通知を送信
+      try {
+        console.log(`[Assignments POST] Sending notification request to: ${request.nextUrl.origin}/api/notifications`);
+        console.log(`[Assignments POST] Request headers:`, Object.fromEntries(request.headers.entries()));
+        console.log(`[Assignments POST] Request cookies:`, request.cookies.getAll());
+        
+        const notificationResponse = await fetch(`${request.nextUrl.origin}/api/notifications`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cookie': request.headers.get('cookie') || '', // Cookieを転送
+          },
+          body: JSON.stringify({
+            type: 'assignment',
+            assignedTo,
+            assignedBy,
+            assignmentTitle: body.assignmentTitle || '学習指示',
+            dueDate,
+            assignmentId: result.assignment?.id
+          })
+        });
+        
+        console.log(`[Assignments POST] Notification response status:`, notificationResponse.status);
+        console.log(`[Assignments POST] Notification response headers:`, Object.fromEntries(notificationResponse.headers.entries()));
+        
+        if (notificationResponse.ok) {
+          console.log(`[Assignments POST] Notification sent to ${assignedTo}`);
+        }
+      } catch (notificationError) {
+        console.error('[Assignments POST] Failed to send notification:', notificationError);
+        // 通知の送信に失敗してもアサインメント作成は続行
+      }
+      
       return NextResponse.json({
         success: true,
         assignment: result.assignment,

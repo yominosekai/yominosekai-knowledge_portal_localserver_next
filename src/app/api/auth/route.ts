@@ -24,9 +24,19 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // 最終ログイン時刻を更新
-    user.last_login = new Date().toISOString();
-    await updateUserData(sid, user);
+    // 最終ログイン時刻を更新（1時間以内の場合はスキップ）
+    const now = new Date();
+    const lastLogin = new Date(user.last_login);
+    const timeDiff = now.getTime() - lastLogin.getTime();
+    const oneHour = 60 * 60 * 1000; // 1時間
+    
+    if (timeDiff > oneHour) {
+      user.last_login = now.toISOString();
+      await updateUserData(sid, user);
+      console.log(`[Auth GET] Updated last_login for user: ${user.username}`);
+    } else {
+      console.log(`[Auth GET] Skipped last_login update (recent login): ${user.username}`);
+    }
     
     console.log(`[Auth GET] Authentication successful for user: ${user.username}`);
     
@@ -94,9 +104,19 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // 最終ログイン時刻を更新
-    user.last_login = new Date().toISOString();
-    await updateUserData(sid, user);
+    // 最終ログイン時刻を更新（1時間以内の場合はスキップ）
+    const now = new Date();
+    const lastLogin = new Date(user.last_login);
+    const timeDiff = now.getTime() - lastLogin.getTime();
+    const oneHour = 60 * 60 * 1000; // 1時間
+    
+    if (timeDiff > oneHour) {
+      user.last_login = now.toISOString();
+      await updateUserData(sid, user);
+      console.log(`[Auth POST] Updated last_login for user: ${user.username}`);
+    } else {
+      console.log(`[Auth POST] Skipped last_login update (recent login): ${user.username}`);
+    }
     
     console.log(`[Auth POST] Authentication successful for user: ${user.username}`);
     

@@ -218,3 +218,4 @@ export class GlobalErrorHandler {
 if (typeof window !== 'undefined') {
   GlobalErrorHandler.getInstance();
 }
+

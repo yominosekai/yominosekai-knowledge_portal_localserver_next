@@ -160,37 +160,101 @@ export async function writeJSON(filePath: string, data: any): Promise<void> {
   }
 }
 
-// ユーザーデータの取得（Zドライブ優先、存在しない場合は新規作成）
+// プロファイルをローカルに同期
+async function syncProfileToLocal(userId: string, profile: any) {
+  try {
+    const localProfilePath = path.join(DATA_DIR, 'users', userId, 'profile.json');
+    const localProfileDir = path.dirname(localProfilePath);
+    
+    if (!fs.existsSync(localProfileDir)) {
+      await mkdir(localProfileDir, { recursive: true });
+    }
+    
+    await writeFile(localProfilePath, JSON.stringify(profile, null, 2), 'utf-8');
+    console.log(`[syncProfileToLocal] Synced profile to local: ${localProfilePath}`);
+  } catch (error) {
+    console.error(`[syncProfileToLocal] Error syncing profile to local:`, error);
+    // ローカルエラーは無視（Zドライブが優先）
+  }
+}
+
+// ユーザープロファイルを保存
+async function saveUserProfile(userId: string, profile: any) {
+  try {
+    console.log(`[saveUserProfile] Saving profile for user: ${userId}`);
+    
+    // Zドライブに保存
+    const zProfilePath = path.join(Z_DRIVE_PATH, 'users', userId, 'profile.json');
+    const zProfileDir = path.dirname(zProfilePath);
+    
+    if (!fs.existsSync(zProfileDir)) {
+      await mkdir(zProfileDir, { recursive: true });
+    }
+    
+    await writeFile(zProfilePath, JSON.stringify(profile, null, 2), 'utf-8');
+    console.log(`[saveUserProfile] Saved profile to Z drive: ${zProfilePath}`);
+    
+    // ローカルにも同期
+    await syncProfileToLocal(userId, profile);
+    
+  } catch (error) {
+    console.error(`[saveUserProfile] Error saving user profile:`, error);
+    throw error;
+  }
+}
+
+// ユーザープロファイルの取得（ユーザー別ファイル）
+async function getUserProfile(userId: string) {
+  try {
+    console.log(`[getUserProfile] Getting profile for user: ${userId}`);
+    
+    // Zドライブからプロファイルを取得
+    const zProfilePath = path.join(Z_DRIVE_PATH, 'users', userId, 'profile.json');
+    console.log(`[getUserProfile] Z drive profile path: ${zProfilePath}`);
+    
+    if (fs.existsSync(zProfilePath)) {
+      console.log(`[getUserProfile] Found profile file on Z drive`);
+      const content = await readFile(zProfilePath, 'utf-8');
+      const profile = JSON.parse(content);
+      
+      // ローカルにも同期
+      await syncProfileToLocal(userId, profile);
+      
+      return profile;
+    }
+    
+    // ローカルからプロファイルを取得（フォールバック）
+    const localProfilePath = path.join(DATA_DIR, 'users', userId, 'profile.json');
+    if (fs.existsSync(localProfilePath)) {
+      console.log(`[getUserProfile] Found profile file on local`);
+      const content = await readFile(localProfilePath, 'utf-8');
+      return JSON.parse(content);
+    }
+    
+    console.log(`[getUserProfile] No profile file found for user: ${userId}`);
+    return null;
+  } catch (error) {
+    console.error(`[getUserProfile] Error getting user profile:`, error);
+    return null;
+  }
+}
+
+// ユーザーデータの取得（ユーザー別プロファイルファイル優先）
 export async function getUserData(userId: string) {
   try {
     console.log(`[getUserData] Getting user data for SID: ${userId}`);
     
-    // Zドライブからユーザーデータを取得
-    const zUsersPath = path.join(Z_DRIVE_PATH, 'shared', 'users.csv');
-    console.log(`[getUserData] Z drive users path: ${zUsersPath}`);
-    
-    let users = [];
-    let userFound = false;
-    
-    if (fs.existsSync(zUsersPath)) {
-      console.log(`[getUserData] Found Z drive users file`);
-      users = await readCSV('users.csv');
-      const user = users.find(u => u.sid === userId);
-      if (user) {
-        console.log(`[getUserData] Found user on Z drive: ${user.username}`);
-        userFound = true;
-        return user;
-      }
+    // ユーザー別プロファイルファイルから取得
+    const userProfile = await getUserProfile(userId);
+    if (userProfile) {
+      console.log(`[getUserData] Found user profile: ${userProfile.username}`);
+      return userProfile;
     }
     
-    // Zドライブにユーザーがいない場合は新規作成
-    if (!userFound) {
-      console.log(`[getUserData] User not found on Z drive, creating new user`);
-      const newUser = await createNewUser(userId);
-      return newUser;
-    }
-    
-    return null;
+    // プロファイルファイルにない場合は新規作成
+    console.log(`[getUserData] User profile not found, creating new user`);
+    const newUser = await createNewUser(userId);
+    return newUser;
   } catch (error) {
     console.error(`[getUserData] Error getting user data:`, error);
     return null;
@@ -220,11 +284,8 @@ async function createNewUser(userId: string) {
       is_active: 'true'
     };
     
-    // Zドライブにユーザーを追加
-    await addUserToZDrive(newUser);
-    
-    // ローカルにもコピー（フォールバック用）
-    await addUserToLocal(newUser);
+    // プロファイルファイルに保存
+    await saveUserProfile(userId, newUser);
     
     console.log(`[createNewUser] Created new user: ${username}`);
     return newUser;
@@ -234,132 +295,35 @@ async function createNewUser(userId: string) {
   }
 }
 
-// Zドライブにユーザーを追加
-async function addUserToZDrive(user: any) {
-  try {
-    const zUsersPath = path.join(Z_DRIVE_PATH, 'shared', 'users.csv');
-    const zUsersDir = path.dirname(zUsersPath);
-    
-    // Zドライブのディレクトリを作成
-    if (!fs.existsSync(zUsersDir)) {
-      await mkdir(zUsersDir, { recursive: true });
-    }
-    
-    let users = [];
-    if (fs.existsSync(zUsersPath)) {
-      const content = await readFile(zUsersPath, 'utf-8');
-      const lines = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim() !== '');
-      
-      if (lines.length > 1) {
-        const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
-          
-          const values = [];
-          let current = '';
-          let inQuotes = false;
-          
-          for (let j = 0; j < line.length; j++) {
-            const char = line[j];
-            if (char === '"') {
-              inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-              values.push(current.trim());
-              current = '';
-            } else {
-              current += char;
-            }
-          }
-          values.push(current.trim());
-          
-          if (values.length === headers.length) {
-            const row: any = {};
-            headers.forEach((header, index) => {
-              row[header] = values[index] || '';
-            });
-            users.push(row);
-          }
-        }
-      }
-    }
-    
-    // 新規ユーザーを追加
-    users.push(user);
-    
-    // CSV形式で保存
-    const headers = Object.keys(user);
-    const csvContent = [
-      headers.map(h => `"${h}"`).join(','),
-      ...users.map(row => 
-        headers.map(header => `"${row[header] || ''}"`).join(',')
-      )
-    ].join('\n');
-    
-    await writeFile(zUsersPath, csvContent, 'utf-8');
-    console.log(`[addUserToZDrive] Added user to Z drive: ${zUsersPath}`);
-  } catch (error) {
-    console.error(`[addUserToZDrive] Error adding user to Z drive:`, error);
-    throw error;
-  }
-}
 
-// ローカルにユーザーを追加（フォールバック用）
-async function addUserToLocal(user: any) {
-  try {
-    const localUsersPath = path.join(DATA_DIR, 'users', 'users.csv');
-    const localUsersDir = path.dirname(localUsersPath);
-    
-    if (!fs.existsSync(localUsersDir)) {
-      await mkdir(localUsersDir, { recursive: true });
-    }
-    
-    let users = [];
-    if (fs.existsSync(localUsersPath)) {
-      users = await readCSV('users/users.csv');
-    }
-    
-    users.push(user);
-    await writeCSV('users/users.csv', users);
-    console.log(`[addUserToLocal] Added user to local: ${localUsersPath}`);
-  } catch (error) {
-    console.error(`[addUserToLocal] Error adding user to local:`, error);
-    // ローカルエラーは無視（Zドライブが優先）
-  }
-}
-
-// ユーザーデータの更新
+// ユーザーデータの更新（プロファイルファイルを更新）
 export async function updateUserData(userId: string, data: any) {
   try {
-    // Zドライブからユーザーデータを取得
-    const zUsersPath = path.join(Z_DRIVE_PATH, 'shared', 'users.csv');
-    let users = [];
+    console.log(`[updateUserData] Updating user data for: ${userId}`);
     
-    if (fs.existsSync(zUsersPath)) {
-      users = await readCSV('users.csv');
+    // 既存のプロファイルを取得
+    const existingProfile = await getUserProfile(userId);
+    
+    if (existingProfile) {
+      // 既存のプロファイルを更新
+      const updatedProfile = { ...existingProfile, ...data };
+      await saveUserProfile(userId, updatedProfile);
+      
+      console.log(`[updateUserData] Updated user profile: ${userId}`);
+      return { success: true, user: updatedProfile };
     } else {
-      // Zドライブにない場合はローカルから取得
-      users = await readCSV('users/users.csv');
-    }
-    
-    const userIndex = users.findIndex(user => user.sid === userId);
-    
-    if (userIndex >= 0) {
-      users[userIndex] = { ...users[userIndex], ...data };
-      
-      // Zドライブに保存
-      if (fs.existsSync(path.dirname(zUsersPath))) {
-        await writeCSV('users.csv', users);
-      }
-      
-      // ローカルにも保存（フォールバック用）
-      await writeCSV('users/users.csv', users);
-      
-      return { success: true, user: users[userIndex] };
-    } else {
-      // ユーザーが見つからない場合は新規作成
+      // プロファイルが見つからない場合は新規作成
       const newUser = await createNewUser(userId);
-      return { success: true, user: newUser };
+      if (newUser) {
+        // 新規作成したユーザーにデータを適用
+        const updatedProfile = { ...newUser, ...data };
+        await saveUserProfile(userId, updatedProfile);
+        
+        console.log(`[updateUserData] Created and updated new user profile: ${userId}`);
+        return { success: true, user: updatedProfile };
+      } else {
+        return { success: false, error: 'Failed to create new user' };
+      }
     }
   } catch (error) {
     console.error(`[updateUserData] Error updating user data:`, error);
@@ -562,9 +526,97 @@ async function syncCategoriesToLocal(categories: any[]) {
   }
 }
 
-// 全ユーザーの取得（Zドライブの実際のデータを使用）
+// ユーザーデータのマイグレーション（CSVからプロファイルファイルへ）
+export async function migrateUsersToProfiles() {
+  try {
+    console.log(`[migrateUsersToProfiles] Starting migration from CSV to profile files`);
+    
+    // 既存のCSVファイルからユーザーを取得
+    const csvUsers = await readCSV('users.csv');
+    console.log(`[migrateUsersToProfiles] Found ${csvUsers.length} users in CSV`);
+    
+    let migratedCount = 0;
+    
+    for (const user of csvUsers) {
+      try {
+        // プロファイルファイルが既に存在するかチェック
+        const existingProfile = await getUserProfile(user.sid);
+        if (!existingProfile) {
+          // プロファイルファイルに保存
+          await saveUserProfile(user.sid, user);
+          migratedCount++;
+          console.log(`[migrateUsersToProfiles] Migrated user: ${user.username}`);
+        } else {
+          console.log(`[migrateUsersToProfiles] Profile already exists for user: ${user.username}`);
+        }
+      } catch (error) {
+        console.error(`[migrateUsersToProfiles] Error migrating user ${user.username}:`, error);
+      }
+    }
+    
+    console.log(`[migrateUsersToProfiles] Migration completed. ${migratedCount} users migrated.`);
+    return { success: true, migratedCount };
+  } catch (error) {
+    console.error(`[migrateUsersToProfiles] Error during migration:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+// 全ユーザーの取得（プロファイルファイルから）
 export async function getAllUsers() {
-  return await readCSV('users.csv');
+  try {
+    console.log(`[getAllUsers] Getting all users from profile files`);
+    
+    const users: any[] = [];
+    
+    // Zドライブのユーザーディレクトリをスキャン
+    const zUsersDir = path.join(Z_DRIVE_PATH, 'users');
+    if (fs.existsSync(zUsersDir)) {
+      const userDirs = fs.readdirSync(zUsersDir);
+      
+      for (const userDir of userDirs) {
+        const profilePath = path.join(zUsersDir, userDir, 'profile.json');
+        if (fs.existsSync(profilePath)) {
+          try {
+            const content = await readFile(profilePath, 'utf-8');
+            const profile = JSON.parse(content);
+            users.push(profile);
+          } catch (error) {
+            console.error(`[getAllUsers] Error reading profile for ${userDir}:`, error);
+          }
+        }
+      }
+    }
+    
+    // ローカルからも取得（フォールバック）
+    const localUsersDir = path.join(DATA_DIR, 'users');
+    if (fs.existsSync(localUsersDir)) {
+      const userDirs = fs.readdirSync(localUsersDir);
+      
+      for (const userDir of userDirs) {
+        const profilePath = path.join(localUsersDir, userDir, 'profile.json');
+        if (fs.existsSync(profilePath)) {
+          try {
+            const content = await readFile(profilePath, 'utf-8');
+            const profile = JSON.parse(content);
+            
+            // Zドライブにない場合のみ追加
+            if (!users.find(u => u.sid === profile.sid)) {
+              users.push(profile);
+            }
+          } catch (error) {
+            console.error(`[getAllUsers] Error reading local profile for ${userDir}:`, error);
+          }
+        }
+      }
+    }
+    
+    console.log(`[getAllUsers] Found ${users.length} users`);
+    return users;
+  } catch (error) {
+    console.error(`[getAllUsers] Error getting all users:`, error);
+    return [];
+  }
 }
 
 // コンテンツの検索
@@ -908,7 +960,7 @@ export async function deleteDepartment(departmentId: string) {
     }
     
     // 部署を使用しているユーザーがいないかチェック
-    const users = await readCSV('users.csv');
+    const users = await getAllUsers();
     const usersInDept = users.filter(u => u.department === department.name);
     
     if (usersInDept.length > 0) {

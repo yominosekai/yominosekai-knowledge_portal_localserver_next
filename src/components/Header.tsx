@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { NotificationCenter } from './NotificationCenter';
 import { ConnectionStatus } from './ConnectionStatus';
-import { RealTimeNotifications } from './RealTimeNotifications';
 import { ThemeToggle } from './ThemeToggle';
 
 const navItems = [
@@ -15,7 +14,7 @@ const navItems = [
   { href: '/progress', label: '進捗' },
   { href: '/leaderboard', label: 'リーダーボード' },
   { href: '/learning-tasks', label: '学習課題' },
-  { href: '/assignments', label: 'アサインメント' },
+  { href: '/assignments', label: '学習指示' },
   { href: '/admin', label: '管理', adminOnly: true },
   { href: '/profile', label: 'プロフィール' },
 ];
@@ -83,15 +82,8 @@ export function Header() {
           {/* テーマ切り替え */}
           <ThemeToggle />
 
-                 {/* 通知センター */}
-                 <NotificationCenter />
-                 
-                 {/* リアルタイム通知 */}
-                 {user && (
-                   <RealTimeNotifications 
-                     userId={user.sid}
-                   />
-                 )}
+          {/* 通知センター */}
+          <NotificationCenter />
 
           {/* ユーザーメニュー */}
           <div className="relative">

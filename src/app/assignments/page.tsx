@@ -363,15 +363,15 @@ export default function Page() {
       const result = await response.json();
 
       if (result.success) {
-             // アサインメント一覧を再取得（キャッシュバスティング付き）
-             const assignmentsResponse = await fetch(`/api/assignments?t=${Date.now()}`, {
-               method: 'GET',
-               headers: {
-                 'Cache-Control': 'no-cache',
-                 'Pragma': 'no-cache'
-               }
-             });
-             const assignmentsData = await assignmentsResponse.json();
+        // アサインメント一覧を再取得（キャッシュバスティング付き）
+        const assignmentsResponse = await fetch(`/api/assignments?t=${Date.now()}`, {
+          method: 'GET',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
+        const assignmentsData = await assignmentsResponse.json();
         
         if (assignmentsData.success) {
           let enrichedAssignments = assignmentsData.assignments.map((assignment: Assignment) => {
@@ -432,12 +432,12 @@ export default function Page() {
     <div className="space-y-6">
       <div className="rounded-lg bg-white/5 p-6 ring-1 ring-white/10">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">アサインメント</h2>
+          <h2 className="text-xl font-semibold">学習指示</h2>
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
             className="px-4 py-2 rounded bg-brand text-white hover:bg-brand-dark transition-colors"
           >
-            新しい課題を割り当て
+            新しい学習指示を作成
           </button>
         </div>
 
@@ -635,7 +635,7 @@ export default function Page() {
 
         {filteredAssignments.length === 0 && (
           <div className="text-center py-8">
-            <p className="text-white/70">該当するアサインメントが見つかりませんでした。</p>
+            <p className="text-white/70">該当する学習指示が見つかりませんでした。</p>
           </div>
         )}
       </div>

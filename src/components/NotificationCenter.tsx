@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNotifications } from '../contexts/NotificationContext';
 
 export function NotificationCenter() {
@@ -11,10 +11,33 @@ export function NotificationCenter() {
     markAsRead,
     markAllAsRead,
     removeNotification,
-    clearAllNotifications
+    clearAllNotifications,
+    fetchNotifications,
+    isLoading,
+    debugInfo,
+    showWindowsNotification,
+    requestNotificationPermission
   } = useNotifications();
 
   const [isOpen, setIsOpen] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
+
+  // 通知エリア外クリックで自動閉じる
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   const getNotificationIcon = (type: string): string => {
     switch (type) {
@@ -36,8 +59,9 @@ export function NotificationCenter() {
     }
   };
 
-  const formatTime = (date: Date): string => {
+  const formatTime = (timestamp: string): string => {
     const now = new Date();
+    const date = new Date(timestamp);
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
@@ -50,7 +74,7 @@ export function NotificationCenter() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={notificationRef}>
       {/* 通知ボタン */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -99,9 +123,49 @@ export function NotificationCenter() {
 
           {/* 通知一覧 */}
           <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
+            {isLoading ? (
               <div className="p-6 text-center text-white/50">
-                通知はありません
+                読み込み中...
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="p-6 text-center text-white/50">
+                <div className="mb-4">
+                  通知はありません
+                </div>
+                
+                {/* デバッグ情報 */}
+                <div className="text-xs text-white/30 space-y-2 border-t border-white/10 pt-4">
+                  <div className="font-mono">
+                    <div>ステータス: {debugInfo.lastFetchStatus}</div>
+                    {debugInfo.lastFetchTime && (
+                      <div>最終取得: {new Date(debugInfo.lastFetchTime).toLocaleTimeString()}</div>
+                    )}
+                    {debugInfo.lastFetchError && (
+                      <div className="text-red-400 mt-2">
+                        エラー: {debugInfo.lastFetchError}
+                      </div>
+                    )}
+                    {debugInfo.apiResponse && (
+                      <div className="mt-2">
+                        <details className="text-left">
+                          <summary className="cursor-pointer hover:text-white/50">
+                            API応答を表示
+                          </summary>
+                          <pre className="mt-2 text-xs bg-black/50 p-2 rounded overflow-auto max-h-32">
+                            {JSON.stringify(debugInfo.apiResponse, null, 2)}
+                          </pre>
+                        </details>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <button
+                    onClick={fetchNotifications}
+                    className="mt-3 px-3 py-1 bg-blue-500/20 hover:bg-blue-500/30 rounded text-xs transition-colors"
+                  >
+                    再読み込み
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="divide-y divide-white/5">
@@ -149,10 +213,13 @@ export function NotificationCenter() {
                           <div className="flex items-center space-x-2">
                             {!notification.read && (
                               <button
-                                onClick={() => markAsRead(notification.id)}
-                                className="text-xs text-brand hover:text-brand-dark"
+                                onClick={() => {
+                                  markAsRead(notification.id);
+                                  // 既読にするだけで、通知は削除しない
+                                }}
+                                className="text-xs text-brand hover:text-brand-dark px-2 py-1 rounded bg-brand/20 hover:bg-brand/30 transition-colors"
                               >
-                                既読
+                                確認
                               </button>
                             )}
                             {notification.actionUrl && (
@@ -180,6 +247,28 @@ export function NotificationCenter() {
                 <span>接続状態: {isOnline ? 'オンライン' : 'オフライン'}</span>
                 <span>{notifications.length}件の通知</span>
               </div>
+              
+              {/* テスト用Windows通知ボタン */}
+              <div className="mt-2 flex space-x-2">
+                <button
+                  onClick={() => {
+                    console.log('Testing Windows notification...');
+                    showWindowsNotification('テスト通知', 'これはテスト用のWindows通知です');
+                  }}
+                  className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded"
+                >
+                  Windows通知テスト
+                </button>
+                <button
+                  onClick={async () => {
+                    const granted = await requestNotificationPermission();
+                    console.log('Notification permission granted:', granted);
+                  }}
+                  className="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded"
+                >
+                  許可再取得
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -187,5 +276,6 @@ export function NotificationCenter() {
     </div>
   );
 }
+
 
 
