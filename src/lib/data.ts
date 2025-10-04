@@ -1577,10 +1577,17 @@ export async function getContentById(contentId: string) {
         } else if (metadata.content_path) {
           // content_pathが指定されている場合は直接読み込み
           let contentFilePath: string;
-          if (fs.existsSync(Z_DRIVE_PATH)) {
+          
+          // ローカルのmetadata.jsonを使用している場合は、ローカルを優先
+          if (metadataPath === localMetadataPathForDetails) {
+            contentFilePath = path.join(DATA_DIR, metadata.content_path);
+            console.log(`[getContentById] Using local content_path (local metadata): ${contentFilePath}`);
+          } else if (fs.existsSync(Z_DRIVE_PATH)) {
             contentFilePath = path.join(Z_DRIVE_PATH, 'shared', metadata.content_path);
+            console.log(`[getContentById] Using Z-drive content_path: ${contentFilePath}`);
           } else {
             contentFilePath = path.join(DATA_DIR, metadata.content_path);
+            console.log(`[getContentById] Using local content_path (fallback): ${contentFilePath}`);
           }
           console.log(`[getContentById] Reading content from content_path: ${contentFilePath}`);
           
@@ -1623,10 +1630,17 @@ export async function getContentById(contentId: string) {
           
           if (mainContentFile) {
             let filePath: string;
-            if (fs.existsSync(Z_DRIVE_PATH)) {
+            
+            // ローカルのmetadata.jsonを使用している場合は、ローカルを優先
+            if (metadataPath === localMetadataPathForDetails) {
+              filePath = path.join(DATA_DIR, mainContentFile.path);
+              console.log(`[getContentById] Using local file path (local metadata): ${filePath}`);
+            } else if (fs.existsSync(Z_DRIVE_PATH)) {
               filePath = path.join(Z_DRIVE_PATH, 'shared', mainContentFile.path);
+              console.log(`[getContentById] Using Z-drive file path: ${filePath}`);
             } else {
               filePath = path.join(DATA_DIR, mainContentFile.path);
+              console.log(`[getContentById] Using local file path (fallback): ${filePath}`);
             }
             console.log(`[getContentById] Reading main content from: ${filePath}`);
             

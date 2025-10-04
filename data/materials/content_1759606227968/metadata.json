@@ -1,0 +1,37 @@
+{
+  "id": "1759606227968",
+  "uuid": "36fed16b-72e2-4f09-b9f6-31b3ee9795fc",
+  "title": "15回目",
+  "description": "15回目",
+  "type": "exercise",
+  "category_id": "3",
+  "difficulty": "intermediate",
+  "estimated_hours": 1,
+  "tags": [
+    "HHH"
+  ],
+  "attachments": [
+    {
+      "original_name": "脅威ハンティングが必要な理由.txt",
+      "safe_name": "file_01_脅威ハンティングが必要な理由.txt",
+      "size": 65252,
+      "path": "materials/content_1759606227968/file_01_脅威ハンティングが必要な理由.txt"
+    }
+  ],
+  "files": [
+    {
+      "original_name": "脅威ハンティングが必要な理由.txt",
+      "safe_name": "file_01_脅威ハンティングが必要な理由.txt",
+      "size": 65252,
+      "path": "materials/content_1759606227968/file_01_脅威ハンティングが必要な理由.txt"
+    }
+  ],
+  "content_path": "materials/content_1759606227968/content.md",
+  "created_date": "2025-10-04T19:30:28.205Z",
+  "updated_date": "2025-10-04T19:30:28.205Z",
+  "created_by": "system",
+  "author_name": "User 1001",
+  "author_sid": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+  "author_role": "admin",
+  "is_active": true
+}

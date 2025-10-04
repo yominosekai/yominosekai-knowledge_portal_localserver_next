@@ -454,6 +454,21 @@ export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }:
                        </div>
                      )}
                      
+                     {/* ローカルのみのコンテンツがある場合の警告 */}
+                     {syncInfo.localOnlyCount > 0 && (
+                       <div className="mt-3 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
+                         <div className="flex items-center gap-2">
+                           <span className="text-yellow-400 text-lg">⚠️</span>
+                           <span className="text-yellow-300 text-sm font-medium">
+                             ※現在ローカルからの同期はできません。
+                           </span>
+                         </div>
+                         <div className="text-yellow-200/80 text-xs mt-1">
+                           ローカルのみのコンテンツ {syncInfo.localOnlyCount}件が検出されました。
+                         </div>
+                       </div>
+                     )}
+                     
                      <div className="flex items-center justify-between">
                        <span>同期状況:</span>
                        <span className={`${

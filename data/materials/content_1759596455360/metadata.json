@@ -1,0 +1,37 @@
+{
+  "id": "1759596455360",
+  "uuid": "1d3f0e2d-ca3d-4dc2-b2a9-5e7a68d8d00d",
+  "title": "5回目",
+  "description": "5回目",
+  "type": "video",
+  "category_id": "5",
+  "difficulty": "beginner",
+  "estimated_hours": 1,
+  "tags": [
+    "AAA"
+  ],
+  "attachments": [
+    {
+      "original_name": "脅威ハンティングが必要な理由.txt",
+      "safe_name": "file_01_脅威ハンティングが必要な理由.txt",
+      "size": 65252,
+      "path": "materials/content_1759596455360/file_01_脅威ハンティングが必要な理由.txt"
+    }
+  ],
+  "files": [
+    {
+      "original_name": "脅威ハンティングが必要な理由.txt",
+      "safe_name": "file_01_脅威ハンティングが必要な理由.txt",
+      "size": 65252,
+      "path": "materials/content_1759596455360/file_01_脅威ハンティングが必要な理由.txt"
+    }
+  ],
+  "content_path": "materials/content_1759596455360/content.md",
+  "created_date": "2025-10-04T16:47:35.490Z",
+  "updated_date": "2025-10-04T16:47:35.490Z",
+  "created_by": "system",
+  "author_name": "User 1001",
+  "author_sid": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+  "author_role": "admin",
+  "is_active": true
+}
