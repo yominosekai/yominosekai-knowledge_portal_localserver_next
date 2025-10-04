@@ -142,8 +142,17 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
           totalContent: totalContent
         });
 
-        // 同期ステータスを再取得
-        await loadSyncStatus();
+        // 同期完了時刻をフロントエンドで設定
+        const now = new Date().toLocaleString('ja-JP', {
+          timeZone: 'Asia/Tokyo',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+        setSyncInfo(prev => ({ ...prev, lastSync: now }));
 
         // コンテンツ一覧の再読み込み
         if (onSuccess) {
@@ -190,8 +199,17 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
           totalContent: syncResponse.totalContent || 0
         });
 
-        // 同期ステータスを再取得
-        await loadSyncStatus();
+        // 同期完了時刻をフロントエンドで設定
+        const now = new Date().toLocaleString('ja-JP', {
+          timeZone: 'Asia/Tokyo',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+        setSyncInfo(prev => ({ ...prev, lastSync: now }));
 
         if (onSuccess) {
           onSuccess();
@@ -233,33 +251,30 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
   // ディレクトリを開く関数
   const openDirectory = () => {
     try {
-      // 絶対パスを構築
-      const absolutePath = `${process.cwd()}\\data\\shared`;
+      // 相対パスを使用（プロジェクトルートからの相対パス）
+      const relativePath = 'data\\materials';
       
-      // PowerShellコマンドでエクスプローラーを開く
-      const command = `powershell -Command "Start-Process explorer '${absolutePath}'"`;
-      
-      // フォールバック: 相対パスでの試行
-      const fallbackPath = `file:///${absolutePath.replace(/\\/g, '/')}`;
-      
-      // まずPowerShellコマンドを試行
-      if (navigator.userAgent.includes('Windows')) {
-        // Windows環境の場合、PowerShellコマンドを実行
-        fetch('/api/open-directory', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: absolutePath })
-        }).catch(() => {
-          // APIが利用できない場合は、window.openを試行
-          window.open(fallbackPath, '_blank');
+      // APIに相対パスを送信（サーバー側で絶対パスに変換）
+      fetch('/api/open-directory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: relativePath })
+      }).then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            console.log('ディレクトリを開きました:', data.path);
+          } else {
+            console.error('ディレクトリを開けませんでした:', data.error);
+            alert('ディレクトリを開けませんでした。手動で data\\materials フォルダを開いてください。');
+          }
+        })
+        .catch(error => {
+          console.error('API呼び出しエラー:', error);
+          alert('ディレクトリを開けませんでした。手動で data\\materials フォルダを開いてください。');
         });
-      } else {
-        // 非Windows環境の場合
-        window.open(fallbackPath, '_blank');
-      }
     } catch (error) {
       console.error('ディレクトリを開けませんでした:', error);
-      alert('ディレクトリを開けませんでした。手動で data\\shared フォルダを開いてください。');
+      alert('ディレクトリを開けませんでした。手動で data\\materials フォルダを開いてください。');
     }
   };
 
@@ -332,7 +347,7 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
                      <div className="flex items-center justify-between">
                        <span>最終同期:</span>
                        <span className="text-white">
-                         {syncInfo.lastSync ? new Date(syncInfo.lastSync).toLocaleString('ja-JP') : '未実行'}
+                         {syncInfo.lastSync ? syncInfo.lastSync : '未実行'}
                        </span>
                      </div>
                      
@@ -412,13 +427,20 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
 
                  {/* 同期結果の表示 */}
                  {syncDetails && (
-                   <div className="mb-6 p-3 border border-white/10 rounded-lg">
+                   <div className={`mb-6 p-3 border rounded-lg transition-colors duration-500 ${
+                     syncDetails.syncedCount > 0 || syncDetails.skippedCount > 0
+                       ? 'border-green-500/30 bg-green-500/10' 
+                       : 'border-white/10'
+                   }`}>
                      <h3 className="font-semibold text-white mb-2">
-                       同期結果
+                       ファイル単位同期結果
+                       {(syncDetails.syncedCount > 0 || syncDetails.skippedCount > 0) && (
+                         <span className="ml-2 text-green-400 text-sm">✓ 同期完了</span>
+                       )}
                      </h3>
                      <div className="text-sm text-white/70 space-y-1">
-                       <div>同期件数: {syncDetails.syncedCount}件</div>
-                       <div>スキップ件数: {syncDetails.skippedCount}件</div>
+                       <div>同期ファイル数: {syncDetails.syncedCount}件</div>
+                       <div>スキップファイル数: {syncDetails.skippedCount}件</div>
                        <div>処理時間: {syncDetails.duration}</div>
                        {syncDetails.totalContent > 0 && (
                          <div>総コンテンツ数: {syncDetails.totalContent}件</div>
@@ -435,7 +457,7 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
                    <div className="flex items-center justify-between">
                      <div className="flex-1 min-w-0">
                        <div className="text-sm text-white/70 font-mono truncate">
-                         data\shared
+                         data\materials
                        </div>
                      </div>
                      <button

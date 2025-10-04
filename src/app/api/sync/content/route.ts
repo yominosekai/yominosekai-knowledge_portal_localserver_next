@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const { syncAll, selectedContent, forceSync, totalContent } = await request.json();
     
     const zDrivePath = CONFIG.DRIVE_PATH;
-    const localDataPath = path.join(process.cwd(), 'data');
+    const localDataPath = CONFIG.DATA_DIR;
     
     // Zドライブの接続確認
     if (!fs.existsSync(zDrivePath)) {
@@ -121,6 +121,10 @@ async function smartSyncWithProgress(
   }
 
   console.log(`[SmartSync] Completed: ${syncedCount} synced, ${skippedCount} skipped`);
+  
+  // 同期ログファイルを作成
+  await writeSyncLog(zDrivePath, syncedCount, skippedCount);
+  
   return { syncedCount, skippedCount };
 }
 
@@ -197,6 +201,28 @@ function getAllFiles(dirPath: string): string[] {
   
   traverse(dirPath);
   return files;
+}
+
+// 同期ログファイルを作成
+async function writeSyncLog(zDrivePath: string, syncedCount: number, skippedCount: number) {
+  try {
+    const logsDir = path.join(zDrivePath, 'shared', 'logs');
+    const logPath = path.join(logsDir, 'sync.log');
+    
+    // logsディレクトリを作成
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
+    
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] Sync completed: ${syncedCount} synced, ${skippedCount} skipped\n`;
+    
+    // ログファイルに追記
+    fs.appendFileSync(logPath, logEntry);
+    console.log(`[SyncLog] Logged sync result: ${logEntry.trim()}`);
+  } catch (error) {
+    console.error('[SyncLog] Failed to write sync log:', error);
+  }
 }
 
 // materials.csvの同期
@@ -291,6 +317,9 @@ async function forceSyncAll(zDrivePath: string, localDataPath: string) {
     
     console.log(`[ForceSync] Force synced ${syncedCount} files`);
   }
+
+  // 同期ログファイルを作成
+  await writeSyncLog(zDrivePath, syncedCount, 0);
 
   return { syncedCount, skippedCount: 0 };
 }

@@ -504,7 +504,7 @@ async function getContentComparison() {
     // サーバー（Zドライブ）のmaterials.csvを読み込み
     let serverMaterials: any[] = [];
     if (isZDriveConnected) {
-      const serverMaterialsPath = path.join(zDrivePath, 'shared', 'materials.csv');
+      const serverMaterialsPath = path.join(zDrivePath, 'shared', 'materials', 'materials.csv');
       if (fs.existsSync(serverMaterialsPath)) {
         serverMaterials = await parseCSVFile(serverMaterialsPath);
       }

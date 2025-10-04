@@ -1,0 +1,36 @@
+{
+  "id": "1759583628556",
+  "title": "新規テスト10.04＿1回目",
+  "description": "新規テスト10.04＿1回目",
+  "type": "exercise",
+  "category_id": "5",
+  "difficulty": "beginner",
+  "estimated_hours": 1,
+  "tags": [
+    "HTML"
+  ],
+  "attachments": [
+    {
+      "original_name": "侵入分析のためのダイヤモンドモデル：4つの頂点.txt",
+      "safe_name": "file_01_侵入分析のためのダイヤモンドモデル：4つの頂点.txt",
+      "size": 26031,
+      "path": "materials/content_1759583628556/file_01_侵入分析のためのダイヤモンドモデル：4つの頂点.txt"
+    }
+  ],
+  "files": [
+    {
+      "original_name": "侵入分析のためのダイヤモンドモデル：4つの頂点.txt",
+      "safe_name": "file_01_侵入分析のためのダイヤモンドモデル：4つの頂点.txt",
+      "size": 26031,
+      "path": "materials/content_1759583628556/file_01_侵入分析のためのダイヤモンドモデル：4つの頂点.txt"
+    }
+  ],
+  "content_path": "materials/content_1759583628556/content.md",
+  "created_date": "2025-10-04T13:13:48.682Z",
+  "updated_date": "2025-10-04T13:13:48.682Z",
+  "created_by": "system",
+  "author_name": "User 1001",
+  "author_sid": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+  "author_role": "admin",
+  "is_active": true
+}

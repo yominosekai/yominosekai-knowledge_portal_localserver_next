@@ -26,7 +26,17 @@ export async function GET() {
                    const lastLine = lines[lines.length - 1];
                    const match = lastLine.match(/\[(.*?)\]/);
                    if (match) {
-                     lastSync = match[1];
+                     // UTC時刻を日本時間に変換
+                     const utcTime = new Date(match[1]);
+                     lastSync = utcTime.toLocaleString('ja-JP', {
+                       timeZone: 'Asia/Tokyo',
+                       year: 'numeric',
+                       month: '2-digit',
+                       day: '2-digit',
+                       hour: '2-digit',
+                       minute: '2-digit',
+                       second: '2-digit'
+                     });
                    }
                  }
                }
@@ -34,37 +44,45 @@ export async function GET() {
                // Zドライブのmaterials.csvからコンテンツ数を取得
                const zDriveMaterialsPath = path.join(zDrivePath, 'shared', 'materials', 'materials.csv');
                if (fs.existsSync(zDriveMaterialsPath)) {
-                 const csvContent = fs.readFileSync(zDriveMaterialsPath, 'utf16le');
+                 const csvContent = fs.readFileSync(zDriveMaterialsPath, 'utf-8');
                  const lines = csvContent.split('\n').filter(line => line.trim());
                  syncedCount = Math.max(0, lines.length - 1); // ヘッダー行を除く
                }
 
                // ローカルのmaterials.csvと比較して同期状況を判定
-               const localMaterialsPath = path.join(process.cwd(), 'data', 'materials', 'materials.csv');
+               const localMaterialsPath = path.join(CONFIG.DATA_DIR, 'materials', 'materials.csv');
                if (fs.existsSync(localMaterialsPath)) {
-                 const csvContent = fs.readFileSync(localMaterialsPath, 'utf16le');
+                 const csvContent = fs.readFileSync(localMaterialsPath, 'utf-8');
                  const lines = csvContent.split('\n').filter(line => line.trim());
                  localCount = Math.max(0, lines.length - 1); // ヘッダー行を除く
                }
 
                // 同期済みコンテンツディレクトリの総サイズを計算
-               const sharedPath = path.join(zDrivePath, 'shared');
-               if (fs.existsSync(sharedPath)) {
-                 const contentDirs = fs.readdirSync(sharedPath)
+               const materialsPath = path.join(zDrivePath, 'shared', 'materials');
+               console.log(`[SyncStatus] Calculating total size from: ${materialsPath}`);
+               if (fs.existsSync(materialsPath)) {
+                 const contentDirs = fs.readdirSync(materialsPath)
                    .filter(dir => dir.startsWith('content_'));
+                 console.log(`[SyncStatus] Found ${contentDirs.length} content directories: ${contentDirs.join(', ')}`);
                  
                  for (const dir of contentDirs) {
-                   const dirPath = path.join(sharedPath, dir);
+                   const dirPath = path.join(materialsPath, dir);
                    if (fs.statSync(dirPath).isDirectory()) {
                      const files = fs.readdirSync(dirPath, { recursive: true });
+                     console.log(`[SyncStatus] Directory ${dir} has ${files.length} files: ${files.join(', ')}`);
                      for (const file of files) {
                        const filePath = path.join(dirPath, file);
                        if (fs.statSync(filePath).isFile()) {
-                         totalSize += fs.statSync(filePath).size;
+                         const fileSize = fs.statSync(filePath).size;
+                         totalSize += fileSize;
+                         console.log(`[SyncStatus] File ${file}: ${fileSize} bytes`);
                        }
                      }
                    }
                  }
+                 console.log(`[SyncStatus] Total size calculated: ${totalSize} bytes`);
+               } else {
+                 console.log(`[SyncStatus] Materials path does not exist: ${materialsPath}`);
                }
              } catch (error) {
                errors.push(`Zドライブの読み込みエラー: ${error instanceof Error ? error.message : 'Unknown error'}`);

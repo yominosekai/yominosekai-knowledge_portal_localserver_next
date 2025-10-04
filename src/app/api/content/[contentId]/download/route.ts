@@ -36,7 +36,7 @@ export async function GET(
     
     if (filePath.startsWith('materials/content_')) {
       // materials/content_XXX/file_XX_xxx.txt 形式の場合
-      const localPath = path.join(process.cwd(), 'data', filePath);
+      const localPath = path.join(CONFIG.DATA_DIR, filePath);
       const zDrivePath = path.join(CONFIG.DRIVE_PATH, 'shared', filePath);
       
       // Zドライブを優先、フォールバックでローカル

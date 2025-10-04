@@ -8,7 +8,7 @@ export async function GET() {
     console.log('[ContentCompare] Starting server and local CSV comparison');
     
     const zDrivePath = CONFIG.DRIVE_PATH;
-    const localDataPath = path.join(process.cwd(), 'data');
+    const localDataPath = CONFIG.DATA_DIR;
     
     // Zドライブの接続確認
     const isZDriveConnected = fs.existsSync(zDrivePath);
