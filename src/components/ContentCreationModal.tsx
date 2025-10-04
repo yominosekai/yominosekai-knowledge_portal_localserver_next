@@ -166,9 +166,10 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
       
       if (result.success) {
         alert('コンテンツが正常にアップロードされました');
-        // 新しいコンテンツ情報を返す（実際のサーバーから取得したIDを使用）
+        // 新しいコンテンツ情報を返す（サーバーから取得した完全な情報を使用）
         const newContent = {
           id: result.contentId,
+          uuid: result.content?.uuid || '', // UUIDを追加
           title: formData.title,
           description: formData.description,
           type: formData.type,
@@ -190,6 +191,7 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
             type: file.type
           }))
         };
+        console.log('ContentCreationModal - New content with UUID:', newContent);
         onSuccess(newContent);
         onClose();
         resetForm();

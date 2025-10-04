@@ -453,9 +453,14 @@ export async function getAllContent() {
       if (existingIndex === -1) {
         acc.push(current);
       } else {
-        // 既存のアイテムを更新（より詳細な情報を優先）
-        if (current.content || current.attachments || current.files) {
-          acc[existingIndex] = { ...acc[existingIndex], ...current };
+        // 既存のアイテムを更新（より詳細な情報を優先、uuidも保持）
+        if (current.content || current.attachments || current.files || current.uuid) {
+          acc[existingIndex] = { 
+            ...acc[existingIndex], 
+            ...current,
+            // uuidが存在する場合は優先的に使用
+            uuid: current.uuid || acc[existingIndex].uuid
+          };
         }
       }
       return acc;
@@ -464,13 +469,22 @@ export async function getAllContent() {
     console.log(`[getAllContent] Total materials: ${allMaterials.length} (server: ${comparison.serverOnly.length}, local: ${comparison.localOnly.length}, both: ${comparison.both.length}, metadata: ${localMetadataContent.length})`);
     console.log(`[getAllContent] Unique materials after deduplication: ${uniqueMaterials.length}`);
     
-    return uniqueMaterials;
+    // ID順でソート（数値として比較）
+    const sortedMaterials = uniqueMaterials.sort((a, b) => {
+      const idA = parseInt(a.id) || 0;
+      const idB = parseInt(b.id) || 0;
+      return idA - idB;
+    });
+    
+    console.log(`[getAllContent] Sorted materials by ID:`, sortedMaterials.map(m => `${m.id}: ${m.title}`));
+    
+    return sortedMaterials;
   } catch (error) {
     console.error('[getAllContent] Error getting content comparison, falling back to original method:', error);
     
     // フォールバック: 元の方法でZドライブ優先で読み込み
     const materials = await readCSV('materials.csv');
-    return materials.map(material => {
+    const processedMaterials = materials.map(material => {
       let dataSource: DataSource;
       
       if (material.dataSource) {
@@ -487,6 +501,13 @@ export async function getAllContent() {
         ...material,
         dataSource
       };
+    });
+    
+    // ID順でソート（数値として比較）
+    return processedMaterials.sort((a, b) => {
+      const idA = parseInt(a.id) || 0;
+      const idB = parseInt(b.id) || 0;
+      return idA - idB;
     });
   }
 }
@@ -590,11 +611,21 @@ function compareMaterials(serverMaterials: any[], localMaterials: any[]) {
   for (const serverMaterial of serverMaterials) {
     const localMaterial = localMaterials.find(local => local.uuid === serverMaterial.uuid);
     if (localMaterial) {
-      // 両方に存在
-      both.push({
-        ...serverMaterial,
-        dataSource: 'both' as const
-      });
+      // 両方に存在するかチェック（ローカルのmetadata.jsonファイルの存在も確認）
+      const hasLocalMetadata = isLocalMetadataExists(serverMaterial.id);
+      if (hasLocalMetadata) {
+        // 両方に存在
+        both.push({
+          ...serverMaterial,
+          dataSource: 'both' as const
+        });
+      } else {
+        // サーバーのみ（ローカルのmetadata.jsonが削除されている）
+        serverOnly.push({
+          ...serverMaterial,
+          dataSource: 'server' as const
+        });
+      }
     } else {
       // サーバーのみ
       serverOnly.push({
@@ -651,10 +682,14 @@ async function getLocalMetadataContent(): Promise<any[]> {
           const metadataContent_raw = await readFile(metadataPath, 'utf-8');
           const metadata = JSON.parse(metadataContent_raw);
           
+          // Zドライブにも同じコンテンツが存在するかチェック
+          const zDriveMetadataPath = path.join(Z_DRIVE_PATH, 'shared', 'materials', `content_${metadata.id}`, 'metadata.json');
+          const existsOnZDrive = fs.existsSync(zDriveMetadataPath);
+          
           // metadata.jsonからmaterials.csv形式に変換
           const material = {
             id: metadata.id,
-            uuid: uuidv4(), // 新しいUUIDを生成（metadata.jsonにはuuidがないため）
+            uuid: metadata.uuid, // metadata.jsonからuuidを読み込み
             title: metadata.title,
             description: metadata.description,
             category_id: metadata.category_id,
@@ -664,7 +699,7 @@ async function getLocalMetadataContent(): Promise<any[]> {
             estimated_hours: metadata.estimated_hours,
             created_date: metadata.created_date,
             updated_date: metadata.updated_date,
-            dataSource: 'local' as const // ローカル専用としてマーク
+            dataSource: existsOnZDrive ? 'both' as const : 'local' as const // 実際の存在状況に基づいて設定
           };
           
           metadataContent.push(material);
@@ -680,6 +715,17 @@ async function getLocalMetadataContent(): Promise<any[]> {
   } catch (error) {
     console.error('[getLocalMetadataContent] Error:', error);
     return [];
+  }
+}
+
+// ローカルのmetadata.jsonファイルが存在するかチェック
+function isLocalMetadataExists(contentId: string): boolean {
+  try {
+    const localMetadataPath = path.join(DATA_DIR, 'materials', `content_${contentId}`, 'metadata.json');
+    return fs.existsSync(localMetadataPath);
+  } catch (error) {
+    console.error(`[isLocalMetadataExists] Error checking metadata file for ${contentId}:`, error);
+    return false;
   }
 }
 
@@ -1041,17 +1087,27 @@ export async function createContent(data: any) {
     };
     
     // メタデータファイルを保存 - Zドライブとローカルの両方に保存
+    console.log(`[createContent] Metadata object:`, JSON.stringify(metadata, null, 2));
+    
     // Zドライブに保存
     if (fs.existsSync(Z_DRIVE_PATH)) {
       const zMetadataPath = path.join(zDriveDir, 'metadata.json');
       await writeFile(zMetadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
       console.log(`[createContent] Created Z drive metadata file: ${zMetadataPath}`);
+      
+      // 保存後の確認
+      const savedContent = await readFile(zMetadataPath, 'utf-8');
+      console.log(`[createContent] Z drive metadata file content:`, savedContent);
     }
     
     // ローカルにも保存
     const localMetadataPath = path.join(localDir, 'metadata.json');
     await writeFile(localMetadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
     console.log(`[createContent] Created local metadata file: ${localMetadataPath}`);
+    
+    // 保存後の確認
+    const localSavedContent = await readFile(localMetadataPath, 'utf-8');
+    console.log(`[createContent] Local metadata file content:`, localSavedContent);
     
     const newMaterial = {
       id: newId,
@@ -1191,40 +1247,35 @@ export async function deleteLocalContent(contentId: string) {
   try {
     console.log(`[deleteLocalContent] Deleting local content: ${contentId}`);
     
-    // 直接materials.csvから読み込んで確認
-    let materials: any[] = [];
-    try {
-      materials = await readCSV('materials/materials.csv');
-    } catch (error) {
-      console.log(`[deleteLocalContent] Could not read materials.csv:`, error);
-      materials = [];
+    // ローカルのmetadata.jsonファイルの存在を確認
+    const localMetadataPath = path.join(DATA_DIR, 'materials', `content_${contentId}`, 'metadata.json');
+    if (!fs.existsSync(localMetadataPath)) {
+      console.log(`[deleteLocalContent] Local metadata file not found: ${localMetadataPath}`);
+      return { success: false, error: 'Local content not found' };
     }
     
-    const contentToDelete = materials.find(m => m.id === contentId);
-    
-    if (!contentToDelete) {
-      console.log(`[deleteLocalContent] Content not found in CSV: ${contentId}`);
-      return { success: false, error: 'Content not found' };
-    }
-    
-    // 1. ローカルのCSVファイルから削除
+    // ローカルのmaterials.csvから削除（存在する場合のみ）
     const localMaterialsPath = path.join(DATA_DIR, 'materials', 'materials.csv');
     if (fs.existsSync(localMaterialsPath)) {
-      const filteredMaterials = materials.filter(m => m.id !== contentId);
-      
-      // writeCSV関数を使用してヘッダーを保持
-      await writeCSV('materials/materials.csv', filteredMaterials);
-      console.log(`[deleteLocalContent] Removed from local CSV: ${contentId}`);
+      try {
+        // ローカルのCSVを直接読み込み（Zドライブ優先のreadCSVを使わない）
+        const materials = await parseCSVFile(localMaterialsPath);
+        const contentToDelete = materials.find(m => m.id === contentId);
+        
+        if (contentToDelete) {
+          const filteredMaterials = materials.filter(m => m.id !== contentId);
+          await writeCSV('materials/materials.csv', filteredMaterials);
+          console.log(`[deleteLocalContent] Removed from local CSV: ${contentId}`);
+        } else {
+          console.log(`[deleteLocalContent] Content not found in local CSV (local-only content): ${contentId}`);
+        }
+      } catch (error) {
+        console.log(`[deleteLocalContent] Could not update local CSV:`, error);
+        // CSVの更新に失敗しても、ファイル削除は続行
+      }
     }
     
-    // 2. ローカルのメタデータファイルを削除
-    const localMetadataPath = path.join(DATA_DIR, 'materials', `content_${contentId}`, 'metadata.json');
-    if (fs.existsSync(localMetadataPath)) {
-      fs.unlinkSync(localMetadataPath);
-      console.log(`[deleteLocalContent] Deleted local metadata file: ${localMetadataPath}`);
-    }
-    
-    // 3. ローカルのコンテンツディレクトリ全体を削除
+    // ローカルのコンテンツディレクトリ全体を削除
     const localContentDir = path.join(DATA_DIR, 'materials', `content_${contentId}`);
     if (fs.existsSync(localContentDir)) {
       fs.rmSync(localContentDir, { recursive: true, force: true });
@@ -1297,25 +1348,68 @@ export async function getContentById(contentId: string) {
   try {
     console.log(`[getContentById] Getting content for ID: ${contentId}`);
     
-    // 基本情報をmaterials.csvから取得
-    const materials = await readCSV('materials.csv');
-    console.log(`[getContentById] Found ${materials.length} materials`);
+    // まずローカルのmetadata.jsonから情報を取得（ローカルのみのコンテンツ対応）
+    const localMetadataPath = path.join(DATA_DIR, 'materials', `content_${contentId}`, 'metadata.json');
+    let material: any = null;
     
-    const material = materials.find(m => m.id === contentId);
-    console.log(`[getContentById] Found material:`, material);
-    
-    if (!material) {
-      console.log(`[getContentById] Material not found for ID: ${contentId}`);
-      return null;
+    if (fs.existsSync(localMetadataPath)) {
+      try {
+        const metadataContent = await readFile(localMetadataPath, 'utf-8');
+        const cleanContent = metadataContent.replace(/^\uFEFF/, '').trim();
+        const metadata = JSON.parse(cleanContent);
+        
+        // metadataから基本情報を構築
+        material = {
+          id: contentId,
+          uuid: metadata.uuid || '',
+          title: metadata.title || '',
+          description: metadata.description || '',
+          category_id: metadata.category_id || '',
+          type: metadata.type || 'article',
+          difficulty: metadata.difficulty || 'beginner',
+          estimated_hours: metadata.estimated_hours || '1',
+          created_date: metadata.created_date || new Date().toISOString(),
+          updated_date: metadata.updated_date || new Date().toISOString(),
+          file_path: metadata.file_path || `materials/content_${contentId}`,
+          author_name: metadata.author_name || '',
+          author_sid: metadata.author_sid || '',
+          author_role: metadata.author_role || 'user'
+        };
+        console.log(`[getContentById] Found local-only material from metadata:`, material);
+      } catch (error) {
+        console.log(`[getContentById] Error reading local metadata:`, error);
+      }
     }
     
-    // 詳細情報をmetadata.jsonから取得（Zドライブ優先、フォールバックでローカル）
+    // ローカルのmetadata.jsonから取得できない場合は、サーバーのmaterials.csvから取得
+    if (!material) {
+      const materials = await readCSV('materials.csv');
+      console.log(`[getContentById] Found ${materials.length} materials in CSV`);
+      
+      material = materials.find(m => m.id === contentId);
+      console.log(`[getContentById] Found material in CSV:`, material);
+      
+      if (!material) {
+        console.log(`[getContentById] Material not found for ID: ${contentId}`);
+        return null;
+      }
+    }
+    
+    // 詳細情報をmetadata.jsonから取得（ローカルのみのコンテンツの場合はローカル優先）
     const contentDir = `content_${contentId}`;
     let metadataPath: string;
-    if (fs.existsSync(Z_DRIVE_PATH)) {
+    
+    // ローカルのmetadata.jsonが存在する場合は、それを優先的に使用
+    const localMetadataPathForDetails = path.join(DATA_DIR, 'materials', contentDir, 'metadata.json');
+    if (fs.existsSync(localMetadataPathForDetails)) {
+      metadataPath = localMetadataPathForDetails;
+      console.log(`[getContentById] Using local metadata: ${metadataPath}`);
+    } else if (fs.existsSync(Z_DRIVE_PATH)) {
       metadataPath = path.join(Z_DRIVE_PATH, 'shared', 'materials', contentDir, 'metadata.json');
+      console.log(`[getContentById] Using Z-drive metadata: ${metadataPath}`);
     } else {
-      metadataPath = path.join(DATA_DIR, 'materials', contentDir, 'metadata.json');
+      metadataPath = localMetadataPathForDetails;
+      console.log(`[getContentById] Using fallback local metadata: ${metadataPath}`);
     }
     console.log(`[getContentById] Metadata path: ${metadataPath}`);
     console.log(`[getContentById] Metadata exists: ${fs.existsSync(metadataPath)}`);

@@ -10,7 +10,7 @@ interface ContentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProgressUpdate?: (contentId: string, status: string) => void;
-  onContentDeleted?: (contentId: string) => void;
+  onContentDeleted?: (contentId: string, deleteType: 'local' | 'server' | 'both') => void;
 }
 
 export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onContentDeleted }: ContentModalProps): React.ReactElement | null {
@@ -67,6 +67,9 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
         setContentDetails(data.content);
         
         console.log('ContentModal - Content details:', data.content);
+        console.log('ContentModal - UUID:', data.content.uuid);
+        console.log('ContentModal - UUID type:', typeof data.content.uuid);
+        console.log('ContentModal - UUID length:', data.content.uuid ? data.content.uuid.length : 'undefined');
         console.log('ContentModal - Attachments:', data.content.attachments);
         console.log('ContentModal - File path:', data.content.file_path);
         console.log('ContentModal - Files array:', data.content.files);
@@ -78,15 +81,6 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
         } else if (data.content.files && data.content.files.length > 0) {
           console.log('ContentModal - Setting attachments from files array');
           setAttachments(data.content.files);
-        } else if (data.content.file_path) {
-          console.log('ContentModal - Setting single file attachment');
-          // 単一ファイルの場合
-          setAttachments([{
-            name: data.content.title,
-            original_name: data.content.title,
-            file_path: data.content.file_path,
-            size: 0
-          }]);
         } else {
           console.log('ContentModal - No attachments found');
           console.log('ContentModal - Available keys:', Object.keys(data.content));
@@ -187,14 +181,11 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
 
       if (result.success) {
         alert('ローカルのコンテンツを削除しました');
-        // 削除完了コールバックを呼び出し
+        // 削除完了コールバックを呼び出し（リアルタイムUI更新）
         if (onContentDeleted) {
-          onContentDeleted(content.id);
-        } else {
-          onClose(); // モーダルを閉じる
+          onContentDeleted(content.id, 'local');
         }
-        // ページをリロードしてコンテンツ一覧を更新
-        window.location.reload();
+        onClose(); // モーダルを閉じる
       } else {
         setError(result.error || 'ローカルコンテンツの削除に失敗しました');
       }
@@ -235,14 +226,11 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
 
       if (result.success) {
         alert('サーバーのコンテンツを削除しました');
-        // 削除完了コールバックを呼び出し
+        // 削除完了コールバックを呼び出し（リアルタイムUI更新）
         if (onContentDeleted) {
-          onContentDeleted(content.id);
-        } else {
-          onClose(); // モーダルを閉じる
+          onContentDeleted(content.id, 'server');
         }
-        // ページをリロードしてコンテンツ一覧を更新
-        window.location.reload();
+        onClose(); // モーダルを閉じる
       } else {
         setError(result.error || 'サーバーコンテンツの削除に失敗しました');
       }
@@ -582,17 +570,25 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
             <div className="flex gap-2">
               <button
                 onClick={handleDeleteLocalContent}
-                disabled={isUpdating}
-                className="px-3 py-2 rounded bg-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-50 transition-colors text-sm"
-                title="ローカルのみ削除"
+                disabled={isUpdating || content?.dataSource === 'server'}
+                className={`px-3 py-2 rounded text-white transition-colors text-sm ${
+                  content?.dataSource === 'server' 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-yellow-500 hover:bg-yellow-600'
+                } ${isUpdating ? 'opacity-50' : ''}`}
+                title={content?.dataSource === 'server' ? 'サーバーのみのコンテンツはローカル削除できません' : 'ローカルのみ削除'}
               >
                 {isUpdating ? '削除中...' : 'ローカル削除'}
               </button>
               <button
                 onClick={handleDeleteServerContent}
-                disabled={isUpdating}
-                className="px-3 py-2 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 transition-colors text-sm"
-                title="サーバーのみ削除"
+                disabled={isUpdating || content?.dataSource === 'local'}
+                className={`px-3 py-2 rounded text-white transition-colors text-sm ${
+                  content?.dataSource === 'local' 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-500 hover:bg-blue-600'
+                } ${isUpdating ? 'opacity-50' : ''}`}
+                title={content?.dataSource === 'local' ? 'ローカルのみのコンテンツはサーバー削除できません' : 'サーバーのみ削除'}
               >
                 {isUpdating ? '削除中...' : 'サーバー削除'}
               </button>

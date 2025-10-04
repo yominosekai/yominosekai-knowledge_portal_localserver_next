@@ -121,9 +121,14 @@ export async function POST(request: NextRequest) {
       console.log(`[content/upload] Could not get user info, using default:`, error);
     }
 
+    // UUIDを生成
+    const uuid = uuidv4();
+    console.log(`[content/upload] Generated UUID: ${uuid}`);
+
     // メタデータを作成
     const metadata = {
       id: contentId,
+      uuid: uuid, // UUIDを追加
       title,
       description,
       type,

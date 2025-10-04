@@ -112,7 +112,29 @@
       "score": 0,
       "notes": "",
       "timestamp": "2025-10-04T11:30:26.851Z"
+    },
+    {
+      "id": 1759596830011,
+      "material_id": "1759596407561",
+      "activity_type": "study",
+      "status": "in_progress",
+      "start_date": "2025-10-04",
+      "completion_date": "",
+      "score": 50,
+      "notes": "",
+      "timestamp": "2025-10-04T16:53:50.011Z"
+    },
+    {
+      "id": 1759596830914,
+      "material_id": "1759596407561",
+      "activity_type": "study",
+      "status": "in_progress",
+      "start_date": "2025-10-04",
+      "completion_date": "",
+      "score": 50,
+      "notes": "",
+      "timestamp": "2025-10-04T16:53:50.914Z"
     }
   ],
-  "last_updated": "2025-10-04T11:30:26.851Z"
+  "last_updated": "2025-10-04T16:53:50.914Z"
 }

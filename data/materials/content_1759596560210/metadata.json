@@ -1,20 +1,21 @@
 {
-  "id": "1759588905724",
-  "title": "新規テスト10.04＿2回目",
-  "description": "新規テスト10.04＿2回目",
-  "type": "article",
+  "id": "1759596560210",
+  "uuid": "031e829b-5a7d-44c1-9b66-10d04c646721",
+  "title": "6回目",
+  "description": "6回目",
+  "type": "video",
   "category_id": "2",
-  "difficulty": "advanced",
+  "difficulty": "beginner",
   "estimated_hours": 1,
   "tags": [
-    "CSV"
+    "BBB"
   ],
   "attachments": [
     {
       "original_name": "メモリフォレンジック：揮発性メモリの分析.txt",
       "safe_name": "file_01_メモリフォレンジック：揮発性メモリの分析.txt",
       "size": 31950,
-      "path": "materials/content_1759588905724/file_01_メモリフォレンジック：揮発性メモリの分析.txt"
+      "path": "materials/content_1759596560210/file_01_メモリフォレンジック：揮発性メモリの分析.txt"
     }
   ],
   "files": [
@@ -22,12 +23,12 @@
       "original_name": "メモリフォレンジック：揮発性メモリの分析.txt",
       "safe_name": "file_01_メモリフォレンジック：揮発性メモリの分析.txt",
       "size": 31950,
-      "path": "materials/content_1759588905724/file_01_メモリフォレンジック：揮発性メモリの分析.txt"
+      "path": "materials/content_1759596560210/file_01_メモリフォレンジック：揮発性メモリの分析.txt"
     }
   ],
-  "content_path": "materials/content_1759588905724/content.md",
-  "created_date": "2025-10-04T14:41:45.878Z",
-  "updated_date": "2025-10-04T14:41:45.878Z",
+  "content_path": "materials/content_1759596560210/content.md",
+  "created_date": "2025-10-04T16:49:20.370Z",
+  "updated_date": "2025-10-04T16:49:20.370Z",
   "created_by": "system",
   "author_name": "User 1001",
   "author_sid": "S-1-5-21-2432060128-2762725120-1584859402-1001",

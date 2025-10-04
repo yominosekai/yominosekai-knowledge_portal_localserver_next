@@ -1,0 +1,23 @@
+{
+  "id": "1759596734346",
+  "uuid": "84461c2f-9bb3-4db2-83be-be92b0c4a611",
+  "title": "9回目",
+  "description": "9回目",
+  "type": "video",
+  "category_id": "2",
+  "difficulty": "intermediate",
+  "estimated_hours": 1,
+  "tags": [
+    "FFF"
+  ],
+  "attachments": [],
+  "files": [],
+  "content_path": "materials/content_1759596734346/content.md",
+  "created_date": "2025-10-04T16:52:14.513Z",
+  "updated_date": "2025-10-04T16:52:14.513Z",
+  "created_by": "system",
+  "author_name": "User 1001",
+  "author_sid": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+  "author_role": "admin",
+  "is_active": true
+}

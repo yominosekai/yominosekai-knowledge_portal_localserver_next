@@ -24,6 +24,49 @@ export default function Page() {
   const [showContentModal, setShowContentModal] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'pending' | 'completed'>('pending'); // 同期状況の状態管理
 
+  // コンテンツ削除時のリアルタイムUI更新
+  const handleContentDeleted = (contentId: string, deleteType: 'local' | 'server' | 'both') => {
+    console.log(`コンテンツ削除: ID=${contentId}, タイプ=${deleteType}`);
+    
+    setMaterials(prevMaterials => {
+      const updatedMaterials = prevMaterials.map(material => {
+        if (material.id === contentId) {
+          switch (deleteType) {
+            case 'local':
+              // ローカル削除: 現在のdataSourceに応じて処理
+              if (material.dataSource === 'local') {
+                // ローカルのみのコンテンツをローカルから削除 → カードを完全に削除
+                return null;
+              } else {
+                // 両方またはサーバーのみのコンテンツをローカルから削除 → サーバーのみに変更
+                return { ...material, dataSource: 'server' };
+              }
+            case 'server':
+              // サーバー削除: 現在のdataSourceに応じて処理
+              if (material.dataSource === 'server') {
+                // サーバーのみのコンテンツをサーバーから削除 → カードを完全に削除
+                return null;
+              } else {
+                // 両方またはローカルのみのコンテンツをサーバーから削除 → ローカルのみに変更
+                return { ...material, dataSource: 'local' };
+              }
+            case 'both':
+              // 両方削除: カードを完全に削除
+              return null;
+            default:
+              return material;
+          }
+        }
+        return material;
+      });
+      
+      // nullの要素をフィルタリング（削除されたカード）
+      return updatedMaterials.filter(material => material !== null);
+    });
+    
+    console.log(`削除完了: ${deleteType}削除でUI更新`);
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -110,15 +153,6 @@ export default function Page() {
     console.log('Progress updated:', contentId, status);
   };
 
-  const handleContentDeleted = (contentId: string) => {
-    // コンテンツ削除後の処理
-    console.log('Content deleted:', contentId);
-    // コンテンツ一覧を再取得
-    fetchData();
-    // モーダルを閉じる
-    setShowContentModal(false);
-    setSelectedContent(null);
-  };
 
   if (loading) {
     return (
@@ -174,9 +208,11 @@ export default function Page() {
                   key={`material-${index}-${material.id || 'no-id'}`}
                   className={`rounded-lg bg-black/20 p-4 ring-1 transition-colors cursor-pointer relative ${
                     material.dataSource === 'local' 
-                      ? 'ring-dashed ring-yellow-500/50 hover:ring-yellow-500/70' 
+                      ? 'ring-solid ring-yellow-500/50 hover:ring-yellow-500/70' 
+                      : material.dataSource === 'server'
+                      ? 'ring-solid ring-blue-500/50 hover:ring-blue-500/70'
                       : material.dataSource === 'both'
-                      ? 'ring-dashed ring-blue-500/50 hover:ring-blue-500/70'
+                      ? 'ring-solid ring-blue-500/50 hover:ring-blue-500/70'
                       : 'ring-white/10 hover:ring-white/20'
                   }`}
                   onClick={() => handleContentClick(material)}
