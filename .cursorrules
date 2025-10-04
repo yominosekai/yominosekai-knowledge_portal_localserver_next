@@ -1,273 +1,60 @@
-# Knowledge Portal - ポータブル版 Cursor ルール
+# Knowledge Portal Rules - AI Optimized
 
-## 🚨 最重要ルール（絶対に守る）
+## CRITICAL RULES
+1. SERVER: ALWAYS use .\restart-server.ps1 for server restart (auto port increment 4000-4099, PID kill, cache clear)
+2. LANGUAGE: All responses in Japanese
+3. DATA: Z:\knowledge_portal\ priority, local fallback only
+4. NOTIFICATIONS: Z-drive persist, real-time UI, cache busting
+5. AUTH: Auto-clear cache, ignore Chrome extension errors, 2s wait + 5 retries
 
-### 1. サーバー起動・停止ルール
-修正の度にサーバーを立てる時は、必ず：
-1. 現在のサーバーをPID確認してキル
-2. ポート番号を+1して起動（例: 3000 → 3001 → 3002...）
-3. 毎回新しいポートで起動する
+## PROJECT
+- Next.js 15.5.4 + React 19.1.1 + TypeScript + Tailwind CSS 3.4.0
+- SID auth, Cookie sessions, 3 roles (user/instructor/admin)
+- Z-drive primary, local sync, CSV/JSON formats
 
-**実装例**:
-```bash
-# 停止
-netstat -aon | findstr :{ポート番号}
-taskkill /f /pid {PID}
+## API ENDPOINTS
+- GET /api/auth, /api/progress/{userId}, /api/content, /api/assignments
+- POST /api/assignments, /api/notifications
+- GET /api/notifications
 
-# 起動
-cd nextjs-app-portable
-Remove-Item -Recurse -Force .next
-npm run dev -- --port {新しいポート}
-```
+## KEY FEATURES
+- Auth: SID-based Windows domain auth
+- Learning: Dashboard, content management, progress tracking
+- Assignments: Create/manage learning tasks, auto-notifications
+- Notifications: Real-time, Z-drive persist, 60s polling + health check
+- Leaderboard: Rankings by department
 
-### 2. 日本語対応ルール
-- **すべての応答は日本語で行う**
-- **コミットメッセージは日本語で記述**
-- **エラーメッセージも日本語で表示**
+## SOLVED ISSUES
+- Cache: ClientHeader dynamic import (ssr: false)
+- Notifications: Cache busting (?t=${Date.now()})
+- Assignments: Dynamic content titles in page.tsx
+- Session: Direct cookie reading
+- Auth errors: Global error handler, Chrome extension filter, auto-reload
 
-### 3. データ管理ルール
-- **Z-drive優先**: ネットワークドライブ（Z:\knowledge_portal\）を最優先
-- **ローカルフォールバック**: Z-driveアクセス失敗時のみローカルデータを使用
-- **ダミーデータ禁止**: 実際のZ-driveデータのみを使用
+## WORKFLOW
+- Start: ALWAYS use .\restart-server.ps1 (NO manual restart)
+- Features: API route → React component → data.ts function → test → commit
+- Bugs: Identify → analyze → fix → test → .\restart-server.ps1
 
-### 4. 通知システムルール
-- **永続化必須**: 通知は必ずZ-driveに保存
-- **リアルタイム更新**: UIは即座に反映される必要がある
-- **キャッシュバスティング**: 通知更新時はキャッシュを無効化
+## EMERGENCY
+- Server down: ALWAYS use .\restart-server.ps1 (NO manual methods)
+- Auth errors: .\restart-server.ps1 + Ctrl+Shift+R + check dev tools
+- No data: Check Z-drive access, file contents, API responses, auth state
+- Notifications: Check Z-drive files, API logs, NotificationContext, cache
 
-### 5. 認証エラー対策ルール
-- **キャッシュ破損対策**: Next.jsキャッシュの自動クリア機能を実装済み
-- **Chrome拡張機能エラー**: `message port closed`エラーは無視する
-- **認証タイミング**: サーバー起動後2秒待機、最大5回リトライ
-- **自動再起動スクリプト**: `restart-server.ps1`を使用してサーバー管理
+## KEY FILES
+- src/lib/data.ts: Data access layer
+- src/contexts/AuthContext.tsx: Auth state with retry
+- src/contexts/NotificationContext.tsx: Notification state
+- src/middleware.ts: Auth middleware
+- src/app/layout.tsx: Global error handler
+- restart-server.ps1: Auto restart script
 
----
-
-## 🏗️ プロジェクト概要
-
-**プロジェクト名**: Knowledge Portal - IT人材育成システム（ポータブル版）  
-**技術スタック**: Next.js 15.5.4 + React 19.1.1 + TypeScript + Tailwind CSS 3.4.0
-
-### ディレクトリ構造
-```
-nextjs-app-portable/              # ポータブル版アプリケーション
-├── start.bat                     # 起動スクリプト
-├── server.js                     # カスタムサーバー
-├── portable-node/                # ポータブルNode.js環境
-│   ├── node.exe                 # Node.js実行ファイル
-│   ├── npm.cmd                  # npmコマンド
-│   └── node_modules/            # Node.js依存関係
-├── src/                         # ソースコード
-│   ├── app/                     # Next.js App Router
-│   ├── components/              # React コンポーネント
-│   ├── contexts/                # React Context
-│   └── lib/                     # ユーティリティ
-└── data/                        # ローカルデータ（同期用）
-```
-
----
-
-## 🔧 技術仕様
-
-### 認証システム
-- **SID認証**: WindowsドメインのSIDを使用
-- **セッション管理**: Cookie-based（`knowledge_portal_session`）
-- **権限管理**: 3段階（user/instructor/admin）
-
-### データ管理
-- **Z-drive優先**: `Z:\knowledge_portal\`を最優先データソース
-- **ローカル同期**: `nextjs-app-portable/data/`にフォールバック
-- **ファイル形式**: CSV（グローバル）、JSON（ユーザー別）
-
-### API設計
-```
-GET  /api/auth                     # 認証情報取得
-GET  /api/progress/{userId}        # 進捗取得
-GET  /api/content                  # コンテンツ一覧
-GET  /api/assignments              # 学習指示一覧
-POST /api/assignments              # 学習指示作成
-GET  /api/notifications            # 通知一覧
-POST /api/notifications            # 通知作成
-```
-
----
-
-## 📱 主要機能
-
-### 1. 認証・ユーザー管理
-- **SID認証**: Windowsドメイン認証
-- **権限管理**: user/instructor/admin
-- **プロフィール管理**: 個人情報・スキル管理
-
-### 2. 学習管理
-- **ダッシュボード**: 学習進捗の可視化
-- **コンテンツ管理**: 動画、記事、クイズの管理
-- **進捗追跡**: 個人・部署別の学習進捗
-
-### 3. 学習指示機能
-- **指示作成**: instructor/adminが学習指示を作成
-- **進捗管理**: 開始/完了/期限管理
-- **通知連動**: 指示作成時に自動通知
-
-### 4. 通知システム
-- **リアルタイム通知**: 学習指示の受信通知
-- **永続化**: Z-driveへの保存
-- **UI操作**: 既読/削除/一括操作
-
-### 5. リーダーボード
-- **ランキング表示**: 学習成果の可視化
-- **部署別表示**: instructorは自分の部署、adminは全部署
-
----
-
-## 🐛 既知の問題と解決方法
-
-### 1. キャッシュ問題
-**問題**: Next.jsのキャッシュにより変更が反映されない  
-**解決方法**: 
-```bash
-cd nextjs-app-portable
-Remove-Item -Recurse -Force .next
-npm run dev -- --port {新しいポート}
-```
-
-### 2. 通知の即座反映問題
-**問題**: 通知作成後、UIが即座に更新されない  
-**解決方法**: キャッシュバスティング（`?t=${Date.now()}`）を実装済み
-
-### 3. セッション認証問題
-**問題**: API Routesでセッション情報が取得できない  
-**解決方法**: Cookieから直接読み取り（`request.cookies.get('knowledge_portal_session')`）
-
-### 4. 認証エラー問題（重要）
-**問題**: 
-- `layout.js:83 Uncaught SyntaxError: Invalid or unexpected token`
-- `runtime.lastError: The message port closed before a response was received`
-- サーバー再起動時にログインできない
-
-**解決方法**: 
-- **グローバルエラーハンドラー**: `src/app/layout.tsx`に実装済み
-- **Chrome拡張機能エラー無視**: `message port closed`エラーをフィルタリング
-- **キャッシュ自動クリア**: 破損検出時の自動リロード機能
-- **認証リトライ強化**: サーバー起動待機2秒、最大5回リトライ、指数バックオフ
-- **自動再起動スクリプト**: `restart-server.ps1`でプロセス管理自動化
-
----
-
-## 🚀 開発ワークフロー
-
-### 1. 開発開始時
-```bash
-# 方法1: 自動再起動スクリプト使用（推奨）
-.\restart-server.ps1
-
-# 方法2: 手動実行
-netstat -aon | findstr :{ポート番号}
-taskkill /f /pid {PID}
-cd nextjs-app-portable
-Remove-Item -Recurse -Force .next
-npm run dev -- --port {現在のポート+1}
-```
-
-### 2. 機能追加時
-1. **API Route作成**: `src/app/api/`に新しいエンドポイント
-2. **フロントエンド実装**: React コンポーネント
-3. **データアクセス**: `src/lib/data.ts`に新しい関数
-4. **テスト**: ブラウザで動作確認
-5. **コミット**: 日本語でコミットメッセージ
-
-### 3. バグ修正時
-1. **問題の特定**: ログとデータの確認
-2. **原因の分析**: コードとデータフローの確認
-3. **修正の実装**: 最小限の変更で修正
-4. **テスト**: 修正内容の動作確認
-5. **サーバー再起動**: ポート+1で再起動
-
----
-
-## 🚨 緊急時の対応
-
-### 1. サーバーが起動しない
-```bash
-# 方法1: 自動再起動スクリプト使用（推奨）
-.\restart-server.ps1
-
-# 方法2: 手動実行
-netstat -an | findstr :{ポート番号}
-taskkill /f /im node.exe
-cd nextjs-app-portable
-Remove-Item -Recurse -Force .next
-npm run dev -- --port {新しいポート}
-```
-
-### 2. 認証エラーが発生する
-```bash
-# 1. 自動再起動スクリプトでサーバー再起動
-.\restart-server.ps1
-
-# 2. ブラウザのキャッシュクリア（Ctrl+Shift+R）
-
-# 3. 開発者ツールでエラー確認
-# - Chrome拡張機能エラーは無視
-# - キャッシュ破損エラーは自動リロードされる
-```
-
-### 3. データが表示されない
-1. **Z-driveアクセス確認**: `Z:\knowledge_portal\`の存在確認
-2. **ファイル内容確認**: CSV/JSONファイルの内容確認
-3. **API レスポンス確認**: 開発者ツールでAPI呼び出し確認
-4. **認証状態確認**: セッションCookieの確認
-
-### 4. 通知が動作しない
-1. **通知ファイル確認**: `Z:\knowledge_portal\users\{SID}\notifications\`
-2. **API ログ確認**: `/api/notifications`のログ確認
-3. **フロントエンド確認**: NotificationContextの状態確認
-4. **キャッシュ確認**: ブラウザキャッシュのクリア
-
----
-
-## 📚 参考資料
-
-### 1. 技術ドキュメント
-- **Next.js**: https://nextjs.org/docs
-- **React**: https://react.dev/
-- **TypeScript**: https://www.typescriptlang.org/docs/
-- **Tailwind CSS**: https://tailwindcss.com/docs
-
-### 2. プロジェクト内ドキュメント
-- **README.md**: プロジェクト概要
-- **nextjs-app-portable/docs/**: API仕様書、ユーザーガイド
-- **このファイル**: .cursorrules
-
-### 3. 重要なファイル
-- **src/lib/data.ts**: データアクセス層
-- **src/contexts/AuthContext.tsx**: 認証状態管理（リトライ機能付き）
-- **src/contexts/NotificationContext.tsx**: 通知状態管理
-- **src/middleware.ts**: 認証ミドルウェア
-- **src/app/layout.tsx**: グローバルエラーハンドラー実装
-- **restart-server.ps1**: 自動サーバー再起動スクリプト
-
----
-
-## 🎉 最後に
-
-このプロジェクトは、PowerShell実装からNext.js + TypeScript + Tailwind CSSへの完全移行を完了した最新版です。
-
-**重要なポイント**:
-1. **サーバー起動ルール**: 必ずポート+1で起動
-2. **日本語対応**: すべての応答は日本語
-3. **Z-drive優先**: ネットワークドライブを最優先
-4. **通知システム**: 永続化とリアルタイム更新
-5. **認証エラー対策**: グローバルエラーハンドラーと自動再起動
-6. **ユーザー期待**: 完全な動作と即座の反映
-
-このルールを理解し、ユーザールールを守って開発を進めてください。
-
-**成功の鍵**: ユーザーの要求を正確に理解し、技術的に正しい実装を行うことです。
-
----
-
-**作成日**: 2025-10-03  
-**バージョン**: v2.0.0  
-**対象**: AI開発者  
-**重要度**: 最高（必須読了）
+## SUCCESS FACTORS
+- ALWAYS use .\restart-server.ps1 for server restart (port 4000-4099 auto increment)
+- Japanese responses
+- Z-drive priority
+- Real-time notifications
+- Error handling
+- Complete functionality
+- Dynamic imports for cache

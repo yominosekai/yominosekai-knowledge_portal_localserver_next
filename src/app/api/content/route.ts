@@ -20,7 +20,14 @@ export async function GET(request: NextRequest) {
       content = await getAllContent();
     }
     
-    return NextResponse.json({ success: true, materials: content });
+    const response = NextResponse.json({ success: true, materials: content });
+    
+    // キャッシュ制御ヘッダーを追加
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
+    return response;
   } catch (error) {
     console.error('Content GET error:', error);
     return NextResponse.json(
@@ -33,7 +40,23 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const result = await createContent(body);
+    
+    // 認証ヘッダーからユーザー情報を取得
+    const authHeader = request.headers.get('authorization');
+    const userSid = request.headers.get('x-user-sid');
+    
+    // ユーザー情報をbodyに追加
+    const enrichedBody = {
+      ...body,
+      authHeader,
+      user: {
+        sid: userSid,
+        display_name: body.user?.display_name || 'Unknown User',
+        role: body.user?.role || 'user'
+      }
+    };
+    
+    const result = await createContent(enrichedBody);
     
     if (result.success) {
       return NextResponse.json(result);

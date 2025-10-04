@@ -126,6 +126,7 @@ nextjs-app-portable/
 ├── 📄 package.json                 # プロジェクト設定
 ├── 📄 .cursorrules                 # Cursor開発ルール
 ├── 📄 README.md                    # このファイル
+├── 📄 DRIVE_SETUP.md               # ネットワークドライブ設定ガイド
 ├── 📁 portable-node/               # ポータブルNode.js環境
 │   ├── 📄 node.exe                # Node.js実行ファイル
 │   ├── 📄 npm.cmd                 # npmコマンド
@@ -164,6 +165,8 @@ nextjs-app-portable/
 │   │   ├── 📄 auth.ts             # 認証ロジック
 │   │   ├── 📄 api.ts              # API クライアント
 │   │   └── 📄 errorHandler.ts     # エラーハンドラー
+│   ├── 📁 config/                 # 設定ファイル
+│   │   └── 📄 drive.ts            # ネットワークドライブ設定
 │   └── 📄 middleware.ts           # Next.js ミドルウェア
 ├── 📁 data/                       # ローカルデータ（同期用）
 │   ├── 📄 users.csv               # ユーザー一覧
@@ -192,7 +195,18 @@ cd nextjs-app-portable
 - **自動起動**: ブラウザが自動で開きます
 - **認証**: Windows SIDによる自動ログイン
 
-### 3. 終了方法
+### 3. 職場環境での設定
+**ネットワークドライブが異なる場合**:
+```typescript
+// src/config/drive.ts を編集
+const DEFAULT_DRIVE_PATH = 'Z:\\knowledge_portal';
+// ↓ 職場環境に応じて変更
+const DEFAULT_DRIVE_PATH = 'G:\\マイドライブ\\knowledge_portal';
+```
+
+**詳細は `DRIVE_SETUP.md` を参照**
+
+### 4. 終了方法
 - **コマンドプロンプト**: `Ctrl+C`
 - **ウィンドウ**: コマンドプロンプトウィンドウを閉じる
 
@@ -243,6 +257,7 @@ cd nextjs-app-portable
 - **ローカル同期**: `nextjs-app-portable/data/`にフォールバック
 - **ファイル形式**: CSV（グローバル）、JSON（ユーザー別）
 - **文字エンコーディング**: UTF-8
+- **設定一元化**: `src/config/drive.ts`でドライブパスを管理
 
 ### データ構造
 ```
@@ -475,6 +490,8 @@ npm run dev -- --port 3001
 
 ### プロジェクト内ドキュメント
 - **.cursorrules**: 開発ルール
+- **DRIVE_SETUP.md**: ネットワークドライブ設定ガイド
+- **src/config/drive.ts**: ドライブ設定（1箇所変更で済む）
 - **src/lib/data.ts**: データアクセス層
 - **src/contexts/**: 状態管理
 - **src/app/api/**: API仕様
@@ -491,12 +508,14 @@ Knowledge Portal ポータブル版は、職場環境の制限下でも利用で
 - **Windows統合**: SID認証によるシームレスなログイン
 - **データ永続化**: Z-driveベースの確実なデータ保存
 - **リアルタイム通知**: 学習指示の即座な通知
+- **設定一元化**: 1箇所の変更で職場環境に対応
 
 このシステムにより、IT人材育成の効率化と学習進捗の可視化を実現できます。
 
 ---
 
 **作成日**: 2025-10-03  
-**バージョン**: v2.0.0  
+**更新日**: 2025-10-04  
+**バージョン**: v2.1.0  
 **対象**: 開発者・ユーザー・メンテナンス担当者  
 **重要度**: 高（参考資料）

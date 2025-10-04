@@ -12,5 +12,33 @@
     "id": "assignment_1759497932026_ore92zbyo",
     "created_date": "2025-10-03T13:25:32.026Z",
     "updated_date": "2025-10-03T13:25:32.026Z"
+  },
+  {
+    "contentId": "35",
+    "assignedTo": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+    "assignedBy": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+    "assignedDate": "2025-10-03T16:25:47.248Z",
+    "dueDate": "2025-10-23",
+    "status": "pending",
+    "progress": 0,
+    "notes": "",
+    "priority": "medium",
+    "id": "assignment_1759508747248_zf9gqqp5v",
+    "created_date": "2025-10-03T16:25:47.248Z",
+    "updated_date": "2025-10-03T16:25:47.248Z"
+  },
+  {
+    "contentId": "37",
+    "assignedTo": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+    "assignedBy": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+    "assignedDate": "2025-10-03T16:27:33.461Z",
+    "dueDate": "2025-10-04",
+    "status": "pending",
+    "progress": 0,
+    "notes": "",
+    "priority": "medium",
+    "id": "assignment_1759508853461_6k4cgaw4d",
+    "created_date": "2025-10-03T16:27:33.461Z",
+    "updated_date": "2025-10-03T16:27:33.461Z"
   }
 ]

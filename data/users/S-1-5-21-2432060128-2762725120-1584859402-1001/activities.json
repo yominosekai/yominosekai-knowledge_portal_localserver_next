@@ -79,7 +79,40 @@
       "score": 50,
       "notes": "",
       "timestamp": "2025-10-01T09:52:43.743Z"
+    },
+    {
+      "id": 1759577398356,
+      "material_id": "1",
+      "activity_type": "study",
+      "status": "completed",
+      "start_date": "2025-10-04",
+      "completion_date": "2025-10-04",
+      "score": 100,
+      "notes": "",
+      "timestamp": "2025-10-04T11:29:58.356Z"
+    },
+    {
+      "id": 1759577422557,
+      "material_id": "1",
+      "activity_type": "study",
+      "status": "not_started",
+      "start_date": "2025-10-04",
+      "completion_date": "",
+      "score": 0,
+      "notes": "",
+      "timestamp": "2025-10-04T11:30:22.557Z"
+    },
+    {
+      "id": 1759577426851,
+      "material_id": "1",
+      "activity_type": "study",
+      "status": "not_started",
+      "start_date": "2025-10-04",
+      "completion_date": "",
+      "score": 0,
+      "notes": "",
+      "timestamp": "2025-10-04T11:30:26.851Z"
     }
   ],
-  "last_updated": "2025-10-01T09:52:43.743Z"
+  "last_updated": "2025-10-04T11:30:26.851Z"
 }

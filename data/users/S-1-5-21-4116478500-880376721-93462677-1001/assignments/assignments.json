@@ -1,1 +1,30 @@
-[]
+[
+  {
+    "contentId": "34",
+    "assignedTo": "S-1-5-21-4116478500-880376721-93462677-1001",
+    "assignedBy": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+    "assignedDate": "2025-10-03T16:23:26.830Z",
+    "dueDate": "2025-10-14",
+    "status": "pending",
+    "progress": 0,
+    "notes": "お勉強してね",
+    "priority": "medium",
+    "id": "assignment_1759508606830_8lwyp2i8t",
+    "created_date": "2025-10-03T16:23:26.830Z",
+    "updated_date": "2025-10-03T16:23:26.830Z"
+  },
+  {
+    "contentId": "36",
+    "assignedTo": "S-1-5-21-4116478500-880376721-93462677-1001",
+    "assignedBy": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+    "assignedDate": "2025-10-03T16:24:39.654Z",
+    "dueDate": "2025-10-29",
+    "status": "pending",
+    "progress": 0,
+    "notes": "",
+    "priority": "medium",
+    "id": "assignment_1759508679654_js9tmmb3b",
+    "created_date": "2025-10-03T16:24:39.654Z",
+    "updated_date": "2025-10-03T16:24:39.654Z"
+  }
+]

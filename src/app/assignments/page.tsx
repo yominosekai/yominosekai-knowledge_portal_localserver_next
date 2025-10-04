@@ -565,12 +565,18 @@ export default function Page() {
 
         {/* アサインメント一覧 */}
         <div className="space-y-4">
-          {filteredAssignments.map((assignment) => (
+          {filteredAssignments.map((assignment) => {
+            const content = materials.find(m => m.id === assignment.contentId);
+            return (
             <div key={`${assignment.id}-${refreshKey}`} className="rounded-lg bg-black/20 p-4 ring-1 ring-white/10 hover:ring-white/20 transition-all">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-white mb-2">学習指示</h3>
-                  <p className="text-white/70 mb-3">学習指示の詳細</p>
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    {content ? content.title : '学習指示'}
+                  </h3>
+                  <p className="text-white/70 mb-3">
+                    {content ? content.description : '学習指示の詳細'}
+                  </p>
                   
                   <div className="flex flex-wrap gap-4 text-sm text-white/50 mb-3">
                     <span>割り当て先: {getUserName(assignment.assignedTo)}</span>
@@ -630,7 +636,8 @@ export default function Page() {
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {filteredAssignments.length === 0 && (

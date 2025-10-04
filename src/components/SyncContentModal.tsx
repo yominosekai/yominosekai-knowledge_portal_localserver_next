@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSyncStatus, syncContent, SyncOptions } from '../lib/sync';
+import { getSyncStatus, smartSync, forceSync, SyncResult } from '../lib/sync';
 
 interface SyncContentModalProps {
   isOpen: boolean;
@@ -17,19 +17,28 @@ interface ContentItem {
   isSelected: boolean;
 }
 
+interface SyncDetails {
+  syncedCount: number;
+  skippedCount: number;
+  duration: string;
+  totalContent: number;
+}
+
 export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModalProps) {
   const [contentItems, setContentItems] = useState<ContentItem[]>([]);
   const [syncAll, setSyncAll] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
-  const [syncStatus, setSyncStatus] = useState('');
-  const [syncInfo, setSyncInfo] = useState({
-    isConnected: false,
-    lastSync: null as string | null,
-    syncedCount: 0,
-    totalSize: 0,
-    errors: [] as string[]
-  });
+  const [syncMessage, setSyncMessage] = useState('');
+  const [syncDetails, setSyncDetails] = useState<SyncDetails | null>(null);
+         const [syncInfo, setSyncInfo] = useState({
+           isConnected: false,
+           lastSync: null as string | null,
+           syncedCount: 0,
+           localCount: 0,
+           totalSize: 0,
+           errors: [] as string[]
+         });
 
   useEffect(() => {
     if (isOpen) {
@@ -79,48 +88,126 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
     ));
   };
 
-  const handleStartSync = async () => {
+  // スマート同期の実行
+  const handleSmartSync = async () => {
     setIsSyncing(true);
     setSyncProgress(0);
-    setSyncStatus('同期を開始しています...');
+    setSyncMessage('スマート同期を開始しています...');
+    setSyncDetails(null);
 
     try {
-      const selectedItems = contentItems.filter(item => item.isSelected);
-      const selectedIds = selectedItems.map(item => item.id);
+      // 1. 同期前の状態確認
+      setSyncProgress(10);
+      setSyncMessage('Zドライブの接続を確認中...');
       
-      const options: SyncOptions = {
-        syncAll,
-        selectedContent: selectedIds,
-        forceSync: true
-      };
+      const statusResponse = await getSyncStatus();
+      if (!statusResponse.isConnected) {
+        throw new Error('Zドライブに接続できません');
+      }
 
-      setSyncStatus('Zドライブとの同期を実行中...');
-      setSyncProgress(25);
-
-      const result = await syncContent(options);
+      // 2. コンテンツ一覧の取得
+      setSyncProgress(20);
+      setSyncMessage('コンテンツ一覧を取得中...');
       
-      if (result.success) {
+      const contentResponse = await fetch('/api/content');
+      const contentData = await contentResponse.json();
+      const totalContent = contentData.materials?.length || 0;
+
+      if (totalContent === 0) {
         setSyncProgress(100);
-        setSyncStatus('同期が完了しました！');
-        
+        setSyncMessage('同期するコンテンツがありません');
+        setIsSyncing(false);
+        return;
+      }
+
+      // 3. スマート同期の実行
+      setSyncProgress(30);
+      setSyncMessage(`${totalContent}件のコンテンツを同期中...`);
+      
+      const syncResponse = await smartSync({
+        totalContent: totalContent,
+        onProgress: (progress: number, message: string) => {
+          setSyncProgress(30 + (progress * 0.6)); // 30-90%の範囲
+          setSyncMessage(message);
+        }
+      });
+
+      if (syncResponse.success) {
+        setSyncProgress(100);
+        setSyncMessage(`同期完了: ${syncResponse.syncedCount}件同期, ${syncResponse.skippedCount}件スキップ`);
+        setSyncDetails({
+          syncedCount: syncResponse.syncedCount || 0,
+          skippedCount: syncResponse.skippedCount || 0,
+          duration: syncResponse.duration || '0ms',
+          totalContent: totalContent
+        });
+
         // 同期ステータスを再取得
         await loadSyncStatus();
-        
+
+        // コンテンツ一覧の再読み込み
         if (onSuccess) {
           onSuccess();
         }
         
-        setTimeout(() => {
-          setIsSyncing(false);
-          onClose();
-        }, 2000);
-      } else {
-        setSyncStatus(`同期に失敗しました: ${result.message}`);
+        // 同期完了後は画面を閉じない（自動閉じるを削除）
         setIsSyncing(false);
+      } else {
+        throw new Error(syncResponse.message || '同期に失敗しました');
       }
+
     } catch (error) {
-      console.error('同期エラー:', error);
-      setSyncStatus(`同期エラー: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Smart sync error:', error);
+      setSyncProgress(0);
+      setSyncMessage(`同期エラー: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setSyncDetails(null);
+      setIsSyncing(false);
+    }
+  };
+
+  // 強制同期の実行
+  const handleForceSync = async () => {
+    setIsSyncing(true);
+    setSyncProgress(0);
+    setSyncMessage('強制同期を開始しています...');
+    setSyncDetails(null);
+
+    try {
+      const syncResponse = await forceSync({
+        onProgress: (progress: number, message: string) => {
+          setSyncProgress(progress);
+          setSyncMessage(message);
+        }
+      });
+
+      if (syncResponse.success) {
+        setSyncProgress(100);
+        setSyncMessage(`強制同期完了: ${syncResponse.syncedCount}件`);
+        setSyncDetails({
+          syncedCount: syncResponse.syncedCount || 0,
+          skippedCount: 0,
+          duration: syncResponse.duration || '0ms',
+          totalContent: syncResponse.totalContent || 0
+        });
+
+        // 同期ステータスを再取得
+        await loadSyncStatus();
+
+        if (onSuccess) {
+          onSuccess();
+        }
+        
+        // 同期完了後は画面を閉じない（自動閉じるを削除）
+        setIsSyncing(false);
+      } else {
+        throw new Error(syncResponse.message || '強制同期に失敗しました');
+      }
+
+    } catch (error) {
+      console.error('Force sync error:', error);
+      setSyncProgress(0);
+      setSyncMessage(`強制同期エラー: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setSyncDetails(null);
       setIsSyncing(false);
     }
   };
@@ -141,6 +228,39 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // ディレクトリを開く関数
+  const openDirectory = () => {
+    try {
+      // 絶対パスを構築
+      const absolutePath = `${process.cwd()}\\data\\shared`;
+      
+      // PowerShellコマンドでエクスプローラーを開く
+      const command = `powershell -Command "Start-Process explorer '${absolutePath}'"`;
+      
+      // フォールバック: 相対パスでの試行
+      const fallbackPath = `file:///${absolutePath.replace(/\\/g, '/')}`;
+      
+      // まずPowerShellコマンドを試行
+      if (navigator.userAgent.includes('Windows')) {
+        // Windows環境の場合、PowerShellコマンドを実行
+        fetch('/api/open-directory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: absolutePath })
+        }).catch(() => {
+          // APIが利用できない場合は、window.openを試行
+          window.open(fallbackPath, '_blank');
+        });
+      } else {
+        // 非Windows環境の場合
+        window.open(fallbackPath, '_blank');
+      }
+    } catch (error) {
+      console.error('ディレクトリを開けませんでした:', error);
+      alert('ディレクトリを開けませんでした。手動で data\\shared フォルダを開いてください。');
+    }
   };
 
   const totalSize = contentItems
@@ -166,27 +286,65 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-          {/* 同期ステータス */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-white mb-3">同期状況</h3>
-            <div className="space-y-2 text-sm text-white/70">
-              <p>Zドライブ接続: <span className={`${syncInfo.isConnected ? 'text-green-400' : 'text-red-400'}`}>
-                {syncInfo.isConnected ? '接続済み' : '未接続'}
-              </span></p>
-              <p>同期済みコンテンツ: <span className="text-white">{syncInfo.syncedCount}</span>件</p>
-              <p>総サイズ: <span className="text-white">{formatFileSize(syncInfo.totalSize * 1024 * 1024)}</span></p>
-              <p>最終同期: <span className="text-white">
-                {syncInfo.lastSync ? new Date(syncInfo.lastSync).toLocaleString('ja-JP') : '未実行'}
-              </span></p>
-              {syncInfo.errors.length > 0 && (
-                <div className="text-red-400 text-xs">
-                  {syncInfo.errors.map((error, index) => (
-                    <div key={index}>• {error}</div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+                 {/* 同期ステータス */}
+                 <div className="mb-6">
+                   <h3 className="text-lg font-semibold text-white mb-3">同期状況</h3>
+                   <div className="space-y-2 text-sm text-white/70">
+                     <div className="flex items-center justify-between">
+                       <span>Zドライブ接続:</span>
+                       <span className={`${syncInfo.isConnected ? 'text-green-400' : 'text-red-400'}`}>
+                         {syncInfo.isConnected ? '接続済み' : '未接続'}
+                       </span>
+                     </div>
+                     
+                     <div className="flex items-center justify-between">
+                       <span>サーバーコンテンツ:</span>
+                       <span className="text-white">{syncInfo.syncedCount}件</span>
+                     </div>
+                     
+                     <div className="flex items-center justify-between">
+                       <span>ローカルコンテンツ:</span>
+                       <span className="text-white">{syncInfo.localCount}件</span>
+                     </div>
+                     
+                     <div className="flex items-center justify-between">
+                       <span>同期状況:</span>
+                       <span className={`${
+                         syncInfo.syncedCount === syncInfo.localCount && syncInfo.syncedCount > 0 
+                           ? 'text-green-400' 
+                           : syncInfo.syncedCount > syncInfo.localCount 
+                             ? 'text-yellow-400' 
+                             : 'text-gray-400'
+                       }`}>
+                         {syncInfo.syncedCount === syncInfo.localCount && syncInfo.syncedCount > 0 
+                           ? '同期済み' 
+                           : syncInfo.syncedCount > syncInfo.localCount 
+                             ? '同期が必要' 
+                             : '未同期'}
+                       </span>
+                     </div>
+                     
+                     <div className="flex items-center justify-between">
+                       <span>総サイズ:</span>
+                       <span className="text-white">{formatFileSize(syncInfo.totalSize * 1024 * 1024)}</span>
+                     </div>
+                     
+                     <div className="flex items-center justify-between">
+                       <span>最終同期:</span>
+                       <span className="text-white">
+                         {syncInfo.lastSync ? new Date(syncInfo.lastSync).toLocaleString('ja-JP') : '未実行'}
+                       </span>
+                     </div>
+                     
+                     {syncInfo.errors.length > 0 && (
+                       <div className="text-red-400 text-xs mt-2">
+                         {syncInfo.errors.map((error, index) => (
+                           <div key={index}>• {error}</div>
+                         ))}
+                       </div>
+                     )}
+                   </div>
+                 </div>
 
           {/* 同期オプション */}
           <div className="mb-6">
@@ -239,18 +397,56 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
               <h3 className="text-lg font-semibold text-white mb-3">同期進捗</h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-white/70">{syncStatus}</span>
-                  <span className="text-white">{syncProgress}%</span>
+                  <span className="text-white/70">{syncMessage}</span>
+                  <span className="text-white">{Math.round(syncProgress)}%</span>
                 </div>
                 <div className="w-full bg-white/10 rounded-full h-2">
                   <div
-                    className="bg-gradient-to-r from-brand to-brand-dark h-2 rounded-full transition-all duration-300"
+                    className="bg-gradient-to-r from-brand to-brand-dark h-2 rounded-full transition-all duration-300 ease-out"
                     style={{ width: `${syncProgress}%` }}
                   />
                 </div>
               </div>
             </div>
           )}
+
+                 {/* 同期結果の表示 */}
+                 {syncDetails && (
+                   <div className="mb-6 p-3 border border-white/10 rounded-lg">
+                     <h3 className="font-semibold text-white mb-2">
+                       同期結果
+                     </h3>
+                     <div className="text-sm text-white/70 space-y-1">
+                       <div>同期件数: {syncDetails.syncedCount}件</div>
+                       <div>スキップ件数: {syncDetails.skippedCount}件</div>
+                       <div>処理時間: {syncDetails.duration}</div>
+                       {syncDetails.totalContent > 0 && (
+                         <div>総コンテンツ数: {syncDetails.totalContent}件</div>
+                       )}
+                     </div>
+                   </div>
+                 )}
+
+                 {/* 保存先ディレクトリ（常時表示） */}
+                 <div className="mb-6 p-3 border border-white/10 rounded-lg">
+                   <h3 className="font-semibold text-white mb-2">
+                     保存先ディレクトリ
+                   </h3>
+                   <div className="flex items-center justify-between">
+                     <div className="flex-1 min-w-0">
+                       <div className="text-sm text-white/70 font-mono truncate">
+                         data\shared
+                       </div>
+                     </div>
+                     <button
+                       onClick={openDirectory}
+                       className="ml-3 px-2 py-1 text-xs bg-white/10 hover:bg-white/20 text-white rounded transition-colors flex items-center gap-1"
+                       title="エクスプローラーで開く"
+                     >
+                       📁 開く
+                     </button>
+                   </div>
+                 </div>
         </div>
 
         <div className="flex items-center justify-end gap-3 p-6 border-t border-white/10">
@@ -261,13 +457,34 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
           >
             キャンセル
           </button>
+          
           <button
-            onClick={handleStartSync}
-            className="px-4 py-2 rounded bg-brand text-white hover:bg-brand-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isSyncing || selectedCount === 0}
+            onClick={handleSmartSync}
+            disabled={isSyncing}
+            className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           >
-            {isSyncing ? '同期中...' : `同期開始 (${selectedCount}件)`}
+            <span>{isSyncing ? '⏳' : '🔄'}</span>
+            {isSyncing ? '同期中...' : 'スマート同期'}
           </button>
+          
+          <button
+            onClick={handleForceSync}
+            disabled={isSyncing}
+            className="px-4 py-2 rounded bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          >
+            <span>{isSyncing ? '⏳' : '⚡'}</span>
+            {isSyncing ? '同期中...' : '強制同期'}
+          </button>
+        </div>
+
+        {/* 同期説明 */}
+        <div className="px-6 pb-4 text-sm text-white/60">
+          <div className="mb-2">
+            <strong>スマート同期:</strong> 変更されたファイルのみ同期（推奨）
+          </div>
+          <div>
+            <strong>強制同期:</strong> 全てのファイルを再同期
+          </div>
         </div>
       </div>
     </div>

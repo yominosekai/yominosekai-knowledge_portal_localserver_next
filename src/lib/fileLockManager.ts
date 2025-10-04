@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
+import { CONFIG } from '../config/drive';
 
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
@@ -149,7 +150,7 @@ export class FileLockManager {
    * 通知ファイルの安全な読み取り
    */
   async readNotificationsSafely(userId: string): Promise<any[]> {
-    const notificationsPath = `Z:\\knowledge_portal\\users\\${userId}\\notifications\\notifications.json`;
+    const notificationsPath = `${CONFIG.DRIVE_PATH}\\users\\${userId}\\notifications\\notifications.json`;
     
     return await this.withFileLock(notificationsPath, async () => {
       try {
@@ -168,7 +169,7 @@ export class FileLockManager {
    * 通知ファイルの安全な書き込み
    */
   async writeNotificationsSafely(userId: string, notifications: any[]): Promise<void> {
-    const notificationsPath = `Z:\\knowledge_portal\\users\\${userId}\\notifications\\notifications.json`;
+    const notificationsPath = `${CONFIG.DRIVE_PATH}\\users\\${userId}\\notifications\\notifications.json`;
     const notificationsDir = path.dirname(notificationsPath);
     
     return await this.withFileLock(notificationsPath, async () => {
@@ -185,7 +186,7 @@ export class FileLockManager {
    * 学習指示ファイルの安全な読み取り
    */
   async readAssignmentsSafely(userId: string): Promise<any[]> {
-    const assignmentsPath = `Z:\\knowledge_portal\\users\\${userId}\\assignments\\assignments.json`;
+    const assignmentsPath = `${CONFIG.DRIVE_PATH}\\users\\${userId}\\assignments\\assignments.json`;
     
     return await this.withFileLock(assignmentsPath, async () => {
       try {
@@ -204,7 +205,7 @@ export class FileLockManager {
    * 学習指示ファイルの安全な書き込み
    */
   async writeAssignmentsSafely(userId: string, assignments: any[]): Promise<void> {
-    const assignmentsPath = `Z:\\knowledge_portal\\users\\${userId}\\assignments\\assignments.json`;
+    const assignmentsPath = `${CONFIG.DRIVE_PATH}\\users\\${userId}\\assignments\\assignments.json`;
     const assignmentsDir = path.dirname(assignmentsPath);
     
     return await this.withFileLock(assignmentsPath, async () => {

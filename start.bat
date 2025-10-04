@@ -1,35 +1,35 @@
 @echo off
 echo ========================================
-echo   Knowledge Portal - ポータブル版
+echo   Knowledge Portal - Portable Edition
 echo ========================================
-echo サーバーを起動中...
+echo Starting server...
 
 cd /d "%~dp0"
 
 if not exist "portable-node\node.exe" (
-    echo エラー: portable-node\node.exe が見つかりません
-    echo エラーが発生しました。ログを確認してください。
+    echo ERROR: portable-node\node.exe not found
+    echo An error occurred. Please check the logs.
     pause
     exit /b 1
 )
 
 if not exist "server.js" (
-    echo エラー: server.js が見つかりません
-    echo エラーが発生しました。ログを確認してください。
+    echo ERROR: server.js not found
+    echo An error occurred. Please check the logs.
     pause
     exit /b 1
 )
 
-echo Node.js バージョン:
+echo Node.js version:
 .\portable-node\node.exe --version
 
 echo.
-echo サーバーを起動中...
+echo Starting server...
 .\portable-node\node.exe server.js
 
 if %ERRORLEVEL% neq 0 (
     echo.
-    echo エラーが発生しました。ログを確認してください。
+    echo An error occurred. Please check the logs.
     pause
     exit /b %ERRORLEVEL%
 )

@@ -2,6 +2,8 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import { apiClient } from '../lib/api';
+import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ContentCreationModalProps {
   isOpen: boolean;
@@ -18,6 +20,8 @@ interface UploadedFile {
 }
 
 export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCreationModalProps) {
+  const { resolvedTheme } = useTheme();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -132,12 +136,18 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
     setIsUploading(true);
     
     try {
+      // FormDataを使用してファイルを送信
       const formDataToSend = new FormData();
       
       // 基本情報を追加
-      Object.entries(formData).forEach(([key, value]) => {
-        formDataToSend.append(key, String(value));
-      });
+      formDataToSend.append('title', formData.title);
+      formDataToSend.append('description', formData.description);
+      formDataToSend.append('type', formData.type);
+      formDataToSend.append('category_id', formData.category_id);
+      formDataToSend.append('difficulty', formData.difficulty);
+      formDataToSend.append('estimated_hours', formData.estimated_hours.toString());
+      formDataToSend.append('tags', formData.tags);
+      formDataToSend.append('content', formData.content);
       
       // ファイルを追加
       uploadedFiles.forEach(fileObj => {
@@ -146,6 +156,9 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
       
       const response = await fetch('/api/content/upload', {
         method: 'POST',
+        headers: {
+          'x-user-sid': user?.sid || '',
+        },
         body: formDataToSend
       });
       
@@ -193,12 +206,12 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-semibold">新しいコンテンツを追加</h2>
+      <div className={`${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden`}>
+        <div className={`flex items-center justify-between p-6 border-b ${resolvedTheme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
+          <h2 className={`text-xl font-semibold ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'}`}>新しいコンテンツを追加</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl"
+            className={`${resolvedTheme === 'dark' ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'} text-2xl`}
           >
             ×
           </button>
@@ -207,10 +220,10 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
           {/* 基本情報 */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-4">基本情報</h3>
+            <h3 className={`text-lg font-semibold mb-4 ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'}`}>基本情報</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={`block text-sm font-medium mb-1 ${resolvedTheme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                   タイトル *
                 </label>
                 <input
@@ -218,20 +231,28 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
                   name="title"
                   value={formData.title}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    resolvedTheme === 'dark' 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
                   required
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={`block text-sm font-medium mb-1 ${resolvedTheme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                   タイプ *
                 </label>
                 <select
                   name="type"
                   value={formData.type}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    resolvedTheme === 'dark' 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
                   required
                 >
                   <option value="">選択してください</option>
@@ -243,14 +264,18 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={`block text-sm font-medium mb-1 ${resolvedTheme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                   カテゴリ *
                 </label>
                 <select
                   name="category_id"
                   value={formData.category_id}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    resolvedTheme === 'dark' 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
                   required
                 >
                   <option value="">選択してください</option>
@@ -263,14 +288,18 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={`block text-sm font-medium mb-1 ${resolvedTheme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                   難易度 *
                 </label>
                 <select
                   name="difficulty"
                   value={formData.difficulty}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    resolvedTheme === 'dark' 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
                   required
                 >
                   <option value="">選択してください</option>
@@ -281,7 +310,7 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={`block text-sm font-medium mb-1 ${resolvedTheme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                   推定学習時間（時間）
                 </label>
                 <input
@@ -291,12 +320,16 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
                   onChange={handleInputChange}
                   min="0"
                   step="0.5"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    resolvedTheme === 'dark' 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={`block text-sm font-medium mb-1 ${resolvedTheme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                   タグ（カンマ区切り）
                 </label>
                 <input
@@ -305,13 +338,17 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
                   value={formData.tags}
                   onChange={handleInputChange}
                   placeholder="例: HTML, CSS, 基礎"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    resolvedTheme === 'dark' 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
                 />
               </div>
             </div>
             
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className={`block text-sm font-medium mb-1 ${resolvedTheme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                 概要 *
               </label>
               <textarea
@@ -319,7 +356,11 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
                 value={formData.description}
                 onChange={handleInputChange}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  resolvedTheme === 'dark' 
+                    ? 'bg-gray-700 border-gray-600 text-white' 
+                    : 'bg-white border-gray-300 text-gray-900'
+                }`}
                 required
               />
             </div>
@@ -327,10 +368,14 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
 
           {/* ファイルアップロード */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-4">ファイルアップロード</h3>
+            <h3 className={`text-lg font-semibold mb-4 ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'}`}>ファイルアップロード</h3>
             <div
               className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                dragActive 
+                  ? 'border-blue-500 bg-blue-50' 
+                  : resolvedTheme === 'dark' 
+                    ? 'border-gray-600 bg-gray-700' 
+                    : 'border-gray-300 bg-gray-50'
               }`}
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
@@ -338,7 +383,7 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
               onDrop={handleDrop}
             >
               <div className="text-4xl mb-4">📁</div>
-              <p className="text-gray-600 mb-4">
+              <p className={`mb-4 ${resolvedTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
                 ファイルをドラッグ&ドロップするか、クリックして選択してください
               </p>
               <button
@@ -392,14 +437,18 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
 
           {/* コンテンツ本文 */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-4">コンテンツ本文（Markdown形式）</h3>
+            <h3 className={`text-lg font-semibold mb-4 ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'}`}>コンテンツ本文（Markdown形式）</h3>
             <textarea
               name="content"
               value={formData.content}
               onChange={handleInputChange}
               rows={10}
               placeholder="Markdown形式でコンテンツを記述してください..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm ${
+                resolvedTheme === 'dark' 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-300 text-gray-900'
+              }`}
             />
           </div>
 
@@ -408,7 +457,11 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+              className={`px-4 py-2 rounded-md transition-colors ${
+                resolvedTheme === 'dark' 
+                  ? 'text-gray-300 bg-gray-600 hover:bg-gray-500' 
+                  : 'text-gray-600 bg-gray-200 hover:bg-gray-300'
+              }`}
             >
               キャンセル
             </button>

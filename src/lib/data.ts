@@ -2,14 +2,30 @@ import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 import { fileLockManager } from './fileLockManager';
+import { v4 as uuidv4 } from 'uuid';
 
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
 const mkdir = promisify(fs.mkdir);
 
-// データディレクトリのパス（Zドライブを優先）
-const Z_DRIVE_PATH = 'Z:\\knowledge_portal';
-const DATA_DIR = path.join(process.cwd(), 'data');
+// データディレクトリのパス（設定ファイルから取得）
+import { CONFIG } from '../config/drive';
+const Z_DRIVE_PATH = CONFIG.DRIVE_PATH;
+const DATA_DIR = CONFIG.DATA_DIR;
+
+// データソースの型定義
+export type DataSource = 'server' | 'local' | 'both';
+
+// データソースを判定する関数
+export function getDataSource(filePath: string): DataSource {
+  // file_pathが空の場合は、Zドライブから読み込まれたかどうかで判定
+  if (!filePath || filePath.trim() === '') {
+    // 現在の実装では、Zドライブから読み込まれた場合は'server'、ローカルから読み込まれた場合は'local'
+    // 実際のファイルパスが空の場合は、Zドライブの存在で判定
+    return fs.existsSync(Z_DRIVE_PATH) ? 'server' : 'local';
+  }
+  return filePath.includes(Z_DRIVE_PATH) ? 'server' : 'local';
+}
 
 // 通知データの型定義
 export interface Notification {
@@ -36,8 +52,13 @@ async function ensureDataDir() {
 // CSVファイルを読み込んでオブジェクト配列に変換
 export async function readCSV(filePath: string): Promise<any[]> {
   try {
-    // Zドライブを優先して読み込み
-    let fullPath = path.join(Z_DRIVE_PATH, 'shared', filePath);
+    // Zドライブを優先して読み込み（materials.csvの場合はmaterials/サブディレクトリを確認）
+    let fullPath: string;
+    if (filePath === 'materials.csv') {
+      fullPath = path.join(Z_DRIVE_PATH, 'shared', 'materials', filePath);
+    } else {
+      fullPath = path.join(Z_DRIVE_PATH, 'shared', filePath);
+    }
     
     if (!fs.existsSync(fullPath)) {
       // Zドライブにない場合はローカルデータディレクトリを使用
@@ -107,23 +128,44 @@ export async function readCSV(filePath: string): Promise<any[]> {
 // オブジェクト配列をCSVファイルに書き込み
 export async function writeCSV(filePath: string, data: any[]): Promise<void> {
   try {
-    await ensureDataDir();
-    const fullPath = path.join(DATA_DIR, filePath);
+    // ファイルパスがZドライブパスかどうかを判定
+    const isZDrivePath = filePath.startsWith(Z_DRIVE_PATH);
     
-    if (data.length === 0) {
-      await writeFile(fullPath, '', 'utf-8');
-      return;
+    let fullPath: string;
+    if (isZDrivePath) {
+      // Zドライブパスの場合はそのまま使用
+      fullPath = filePath;
+    } else {
+      // ローカルパスの場合はDATA_DIRと結合
+      await ensureDataDir();
+      fullPath = path.join(DATA_DIR, filePath);
     }
     
-    const headers = Object.keys(data[0]);
-    const csvContent = [
-      headers.map(h => `"${h}"`).join(','),
-      ...data.map(row => 
-        headers.map(header => `"${row[header] || ''}"`).join(',')
-      )
-    ].join('\n');
+    // ディレクトリが存在しない場合は作成
+    const dir = path.dirname(fullPath);
+    if (!fs.existsSync(dir)) {
+      await mkdir(dir, { recursive: true });
+    }
+    
+    let headers: string[];
+    let csvContent: string;
+    
+    if (data.length === 0) {
+      // 空配列の場合はデフォルトヘッダーを作成
+      headers = ['id', 'title', 'description', 'type', 'category_id', 'difficulty', 'estimated_hours', 'tags', 'created_date', 'updated_date', 'created_by', 'is_active'];
+      csvContent = headers.map(h => `"${h}"`).join(',');
+    } else {
+      headers = Object.keys(data[0]);
+      csvContent = [
+        headers.map(h => `"${h}"`).join(','),
+        ...data.map(row => 
+          headers.map(header => `"${row[header] || ''}"`).join(',')
+        )
+      ].join('\n').trim(); // trim()で末尾の改行を削除
+    }
     
     await writeFile(fullPath, csvContent, 'utf-8');
+    console.log(`[writeCSV] Successfully wrote ${data.length} rows to ${fullPath}`);
   } catch (error) {
     console.error(`Error writing CSV file ${filePath}:`, error);
     throw error;
@@ -386,9 +428,259 @@ export async function updateUserActivities(userId: string, activityData: any) {
   return { success: true, activity: newActivity };
 }
 
-// 全コンテンツの取得（Zドライブの実際のデータを使用）
+// 全コンテンツの取得（サーバーとローカルの差分を考慮）
 export async function getAllContent() {
-  return await readCSV('materials.csv');
+  try {
+    console.log('[getAllContent] Getting all content with data source comparison');
+    
+    // CSV比較APIを呼び出して差分を取得
+    const comparison = await getContentComparison();
+    
+    // ローカルのmetadata.jsonからもコンテンツを取得
+    const localMetadataContent = await getLocalMetadataContent();
+    
+    // 全てのコンテンツを統合（重複を避ける）
+    const allMaterials = [
+      ...comparison.serverOnly,
+      ...comparison.localOnly,
+      ...comparison.both,
+      ...localMetadataContent // ローカルのmetadata.jsonから取得したコンテンツを追加
+    ];
+    
+    // 重複を除去（IDでユニークにする）
+    const uniqueMaterials = allMaterials.reduce((acc: any[], current: any) => {
+      const existingIndex = acc.findIndex(item => item.id === current.id);
+      if (existingIndex === -1) {
+        acc.push(current);
+      } else {
+        // 既存のアイテムを更新（より詳細な情報を優先）
+        if (current.content || current.attachments || current.files) {
+          acc[existingIndex] = { ...acc[existingIndex], ...current };
+        }
+      }
+      return acc;
+    }, []);
+    
+    console.log(`[getAllContent] Total materials: ${allMaterials.length} (server: ${comparison.serverOnly.length}, local: ${comparison.localOnly.length}, both: ${comparison.both.length}, metadata: ${localMetadataContent.length})`);
+    console.log(`[getAllContent] Unique materials after deduplication: ${uniqueMaterials.length}`);
+    
+    return uniqueMaterials;
+  } catch (error) {
+    console.error('[getAllContent] Error getting content comparison, falling back to original method:', error);
+    
+    // フォールバック: 元の方法でZドライブ優先で読み込み
+    const materials = await readCSV('materials.csv');
+    return materials.map(material => {
+      let dataSource: DataSource;
+      
+      if (material.dataSource) {
+        dataSource = material.dataSource as DataSource;
+      } else if (material.file_path && material.file_path.includes(Z_DRIVE_PATH)) {
+        dataSource = 'server';
+      } else if (fs.existsSync(Z_DRIVE_PATH)) {
+        dataSource = 'server';
+      } else {
+        dataSource = 'local';
+      }
+      
+      return {
+        ...material,
+        dataSource
+      };
+    });
+  }
+}
+
+// コンテンツ比較を取得（内部API呼び出し）
+async function getContentComparison() {
+  try {
+    // 内部でCSV比較ロジックを実行（API呼び出しを避ける）
+    const zDrivePath = Z_DRIVE_PATH;
+    const localDataPath = DATA_DIR;
+    
+    // Zドライブの接続確認
+    const isZDriveConnected = fs.existsSync(zDrivePath);
+    
+    // サーバー（Zドライブ）のmaterials.csvを読み込み
+    let serverMaterials: any[] = [];
+    if (isZDriveConnected) {
+      const serverMaterialsPath = path.join(zDrivePath, 'shared', 'materials.csv');
+      if (fs.existsSync(serverMaterialsPath)) {
+        serverMaterials = await parseCSVFile(serverMaterialsPath);
+      }
+    }
+    
+    // ローカルのmaterials.csvを読み込み
+    let localMaterials: any[] = [];
+    const localMaterialsPath = path.join(localDataPath, 'materials', 'materials.csv');
+    if (fs.existsSync(localMaterialsPath)) {
+      localMaterials = await parseCSVFile(localMaterialsPath);
+    }
+    
+    // 差分を検出
+    return compareMaterials(serverMaterials, localMaterials);
+  } catch (error) {
+    console.error('[getContentComparison] Error:', error);
+    throw error;
+  }
+}
+
+// CSVファイルを解析（内部関数）
+async function parseCSVFile(filePath: string): Promise<any[]> {
+  try {
+    const content = await readFile(filePath, 'utf-8');
+    const lines = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim() !== '');
+    
+    if (lines.length < 2) return [];
+    
+    const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+    const data = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      
+      // CSVの値を正しく分割（カンマ区切り、ダブルクォート対応）
+      const values = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let j = 0; j < line.length; j++) {
+        const char = line[j];
+        
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          values.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      values.push(current.trim());
+      
+      // ヘッダー数と値の数が一致しない場合はスキップ
+      if (values.length !== headers.length) {
+        console.warn(`[parseCSVFile] Skipping malformed CSV line ${i + 1}: expected ${headers.length} columns, got ${values.length}`);
+        continue;
+      }
+      
+      const row: any = {};
+      headers.forEach((header, index) => {
+        row[header] = values[index] || '';
+      });
+      
+      data.push(row);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error(`[parseCSVFile] Error parsing CSV file ${filePath}:`, error);
+    return [];
+  }
+}
+
+// サーバーとローカルのmaterialsを比較（内部関数）
+function compareMaterials(serverMaterials: any[], localMaterials: any[]) {
+  const serverOnly: any[] = [];
+  const localOnly: any[] = [];
+  const both: any[] = [];
+  
+  // サーバーのmaterialsをチェック
+  for (const serverMaterial of serverMaterials) {
+    const localMaterial = localMaterials.find(local => local.uuid === serverMaterial.uuid);
+    if (localMaterial) {
+      // 両方に存在
+      both.push({
+        ...serverMaterial,
+        dataSource: 'both' as const
+      });
+    } else {
+      // サーバーのみ
+      serverOnly.push({
+        ...serverMaterial,
+        dataSource: 'server' as const
+      });
+    }
+  }
+  
+  // ローカルのmaterialsをチェック（サーバーにないもの）
+  for (const localMaterial of localMaterials) {
+    const serverMaterial = serverMaterials.find(server => server.uuid === localMaterial.uuid);
+    if (!serverMaterial) {
+      // ローカルのみ
+      localOnly.push({
+        ...localMaterial,
+        dataSource: 'local' as const
+      });
+    }
+  }
+  
+  return {
+    serverOnly,
+    localOnly,
+    both
+  };
+}
+
+// ローカルのmetadata.jsonからコンテンツを取得
+async function getLocalMetadataContent(): Promise<any[]> {
+  try {
+    console.log('[getLocalMetadataContent] Scanning local metadata files');
+    
+    const localMaterialsDir = path.join(DATA_DIR, 'materials');
+    const metadataContent: any[] = [];
+    
+    if (!fs.existsSync(localMaterialsDir)) {
+      console.log('[getLocalMetadataContent] Local materials directory not found');
+      return [];
+    }
+    
+    // materialsディレクトリ内のcontent_*ディレクトリをスキャン
+    const contentDirs = fs.readdirSync(localMaterialsDir)
+      .filter(dir => dir.startsWith('content_'))
+      .sort();
+    
+    console.log(`[getLocalMetadataContent] Found ${contentDirs.length} content directories`);
+    
+    for (const contentDir of contentDirs) {
+      const metadataPath = path.join(localMaterialsDir, contentDir, 'metadata.json');
+      
+      if (fs.existsSync(metadataPath)) {
+        try {
+          const metadataContent_raw = await readFile(metadataPath, 'utf-8');
+          const metadata = JSON.parse(metadataContent_raw);
+          
+          // metadata.jsonからmaterials.csv形式に変換
+          const material = {
+            id: metadata.id,
+            uuid: uuidv4(), // 新しいUUIDを生成（metadata.jsonにはuuidがないため）
+            title: metadata.title,
+            description: metadata.description,
+            category_id: metadata.category_id,
+            type: metadata.type,
+            file_path: metadata.content_path || '',
+            difficulty: metadata.difficulty,
+            estimated_hours: metadata.estimated_hours,
+            created_date: metadata.created_date,
+            updated_date: metadata.updated_date,
+            dataSource: 'local' as const // ローカル専用としてマーク
+          };
+          
+          metadataContent.push(material);
+          console.log(`[getLocalMetadataContent] Added material from metadata: ${metadata.title} (ID: ${metadata.id})`);
+        } catch (error) {
+          console.error(`[getLocalMetadataContent] Error reading metadata file ${metadataPath}:`, error);
+        }
+      }
+    }
+    
+    console.log(`[getLocalMetadataContent] Found ${metadataContent.length} materials from metadata files`);
+    return metadataContent;
+  } catch (error) {
+    console.error('[getLocalMetadataContent] Error:', error);
+    return [];
+  }
 }
 
 // 全カテゴリの取得（Zドライブ優先、ローカルにコピー）
@@ -641,26 +933,162 @@ export async function searchContent(query: string, category?: string, difficulty
 
 // コンテンツの作成
 export async function createContent(data: any) {
-  const materials = await getAllContent();
-  const newId = (Math.max(...materials.map(m => parseInt(m.id) || 0)) + 1).toString();
-  
-  const newMaterial = {
-    id: newId,
-    title: data.title,
-    description: data.description,
-    category_id: data.category_id,
-    type: data.type,
-    file_path: data.file_path || '',
-    difficulty: data.difficulty,
-    estimated_hours: data.estimated_hours || 1,
-    created_date: new Date().toISOString(),
-    updated_date: new Date().toISOString()
-  };
-  
-  materials.push(newMaterial);
-  await writeCSV('materials/materials.csv', materials);
-  
-  return { success: true, material: newMaterial };
+  try {
+    console.log(`[createContent] Creating new content: ${data.title}`);
+    
+    const materials = await getAllContent();
+    
+    // ID生成の修正（空配列の場合の処理）
+    let newId: string;
+    if (materials.length === 0) {
+      newId = '1';
+    } else {
+      const maxId = Math.max(...materials.map(m => parseInt(m.id) || 0));
+      newId = (maxId + 1).toString();
+    }
+    
+    const uuid = uuidv4(); // UUIDを生成
+    const directoryName = `content_${newId.padStart(3, '0')}`;
+    
+    // フォルダ作成（Zドライブとローカルの両方に作成）
+    const zDriveDir = path.join(Z_DRIVE_PATH, 'shared', 'materials', directoryName);
+    const localDir = path.join(DATA_DIR, 'materials', directoryName);
+    
+    // Zドライブにフォルダ作成
+    if (fs.existsSync(Z_DRIVE_PATH)) {
+      await mkdir(zDriveDir, { recursive: true });
+      console.log(`[createContent] Created Z drive directory: ${zDriveDir}`);
+    }
+    
+    // ローカルにもフォルダ作成（同期のため）
+    await mkdir(localDir, { recursive: true });
+    console.log(`[createContent] Created local directory: ${localDir}`);
+    
+    // メインの作業ディレクトリを設定
+    const uploadDir = fs.existsSync(Z_DRIVE_PATH) ? zDriveDir : localDir;
+    
+    // コンテンツファイルを作成（Markdown）- Zドライブとローカルの両方に作成
+    if (data.content && data.content.trim()) {
+      // Zドライブに作成
+      if (fs.existsSync(Z_DRIVE_PATH)) {
+        const zContentPath = path.join(zDriveDir, 'content.md');
+        await writeFile(zContentPath, data.content, 'utf-8');
+        console.log(`[createContent] Created Z drive content file: ${zContentPath}`);
+      }
+      
+      // ローカルにも作成
+      const localContentPath = path.join(localDir, 'content.md');
+      await writeFile(localContentPath, data.content, 'utf-8');
+      console.log(`[createContent] Created local content file: ${localContentPath}`);
+    }
+    
+    // 現在のユーザー情報を取得
+    let author_name = 'Unknown Author';
+    let author_sid = '';
+    let author_role = 'user';
+    
+    try {
+      // リクエストからユーザー情報を取得（認証済みユーザー）
+      if (data.user && data.user.sid) {
+        // ユーザー情報を直接取得
+        author_name = data.user.display_name || 'Unknown Author';
+        author_sid = data.user.sid || '';
+        author_role = data.user.role || 'user';
+        console.log(`[createContent] User info: ${author_name} (${author_sid}, ${author_role})`);
+      } else {
+        console.log(`[createContent] No user info provided, using defaults`);
+      }
+    } catch (error) {
+      console.log(`[createContent] Could not get user info, using default:`, error);
+    }
+
+    // 添付ファイル情報を処理
+    const files: any[] = [];
+    if (data.files && Array.isArray(data.files)) {
+      data.files.forEach((file: any, index: number) => {
+        files.push({
+          id: `${newId}_file_${index + 1}`,
+          original_name: file.name,
+          safe_name: `file_${String(index + 1).padStart(2, '0')}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`,
+          size: file.size,
+          type: file.type,
+          path: `materials/${directoryName}/file_${String(index + 1).padStart(2, '0')}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+        });
+      });
+    }
+
+    // メタデータを作成
+    const metadata = {
+      id: newId,
+      uuid: uuid,
+      title: data.title,
+      description: data.description,
+      category_id: data.category_id,
+      type: data.type,
+      difficulty: data.difficulty,
+      estimated_hours: data.estimated_hours || 1,
+      tags: data.tags ? data.tags.split(',').map((tag: string) => tag.trim()) : [],
+      content_path: data.content ? `materials/${directoryName}/content.md` : null,
+      files: files,
+      attachments: files,
+      created_date: new Date().toISOString(),
+      updated_date: new Date().toISOString(),
+      created_by: 'system',
+      author_name: author_name,
+      author_sid: author_sid,
+      author_role: author_role,
+      is_active: true
+    };
+    
+    // メタデータファイルを保存 - Zドライブとローカルの両方に保存
+    // Zドライブに保存
+    if (fs.existsSync(Z_DRIVE_PATH)) {
+      const zMetadataPath = path.join(zDriveDir, 'metadata.json');
+      await writeFile(zMetadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
+      console.log(`[createContent] Created Z drive metadata file: ${zMetadataPath}`);
+    }
+    
+    // ローカルにも保存
+    const localMetadataPath = path.join(localDir, 'metadata.json');
+    await writeFile(localMetadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
+    console.log(`[createContent] Created local metadata file: ${localMetadataPath}`);
+    
+    const newMaterial = {
+      id: newId,
+      uuid: uuid,
+      title: data.title,
+      description: data.description,
+      category_id: data.category_id,
+      type: data.type,
+      file_path: `materials/${directoryName}`,
+      difficulty: data.difficulty,
+      estimated_hours: data.estimated_hours || 1,
+      created_date: new Date().toISOString(),
+      updated_date: new Date().toISOString()
+    };
+    
+    materials.push(newMaterial);
+    
+    // Zドライブに保存
+    const zDriveMaterialsPath = path.join(Z_DRIVE_PATH, 'shared', 'materials', 'materials.csv');
+    if (fs.existsSync(Z_DRIVE_PATH)) {
+      await writeCSV(zDriveMaterialsPath, materials);
+      console.log(`[createContent] Saved to Z drive: ${zDriveMaterialsPath}`);
+    } else {
+      console.log(`[createContent] Z drive not available, saving locally only`);
+    }
+    
+    // ローカルにも保存
+    const localMaterialsPath = 'materials/materials.csv';
+    await writeCSV(localMaterialsPath, materials);
+    console.log(`[createContent] Saved to local: ${localMaterialsPath}`);
+    
+    console.log(`[createContent] Successfully created content: ${newId}`);
+    return { success: true, material: newMaterial };
+  } catch (error) {
+    console.error(`[createContent] Error creating content:`, error);
+    return { success: false, error: error.message };
+  }
 }
 
 // コンテンツの更新
@@ -683,15 +1111,79 @@ export async function updateContent(contentId: string, data: any) {
 
 // コンテンツの削除
 export async function deleteContent(contentId: string) {
-  const materials = await getAllContent();
-  const filteredMaterials = materials.filter(m => m.id !== contentId);
-  
-  if (filteredMaterials.length < materials.length) {
-    await writeCSV('materials/materials.csv', filteredMaterials);
+  try {
+    console.log(`[deleteContent] Deleting content: ${contentId}`);
+    
+    // 直接materials.csvから読み込んで確認
+    let materials: any[] = [];
+    try {
+      materials = await readCSV('materials/materials.csv');
+    } catch (error) {
+      console.log(`[deleteContent] Could not read materials.csv:`, error);
+      materials = [];
+    }
+    
+    const contentToDelete = materials.find(m => m.id === contentId);
+    
+    if (!contentToDelete) {
+      console.log(`[deleteContent] Content not found in CSV: ${contentId}`);
+      // CSVにない場合でも、ファイルシステムから削除を試行
+    }
+    
+    // 1. ZドライブのCSVファイルから削除
+    const zMaterialsPath = path.join(Z_DRIVE_PATH, 'shared', 'materials', 'materials.csv');
+    if (fs.existsSync(zMaterialsPath)) {
+      const filteredMaterials = materials.filter(m => m.id !== contentId);
+      
+      // writeCSV関数を使用してヘッダーを保持
+      await writeCSV(zMaterialsPath, filteredMaterials);
+      console.log(`[deleteContent] Removed from Z drive CSV: ${contentId}`);
+    }
+    
+    // 2. ローカルのCSVファイルからも削除（同期のため）
+    const localMaterialsPath = path.join(DATA_DIR, 'materials', 'materials.csv');
+    if (fs.existsSync(localMaterialsPath)) {
+      const filteredMaterials = materials.filter(m => m.id !== contentId);
+      
+      // writeCSV関数を使用してヘッダーを保持
+      await writeCSV('materials/materials.csv', filteredMaterials);
+      console.log(`[deleteContent] Removed from local CSV: ${contentId}`);
+    }
+    
+    // 3. メタデータファイルを削除（Zドライブ）
+    const zMetadataPath = path.join(Z_DRIVE_PATH, 'shared', 'materials', `content_${contentId}`, 'metadata.json');
+    if (fs.existsSync(zMetadataPath)) {
+      fs.unlinkSync(zMetadataPath);
+      console.log(`[deleteContent] Deleted Z drive metadata file: ${zMetadataPath}`);
+    }
+    
+    // 4. コンテンツディレクトリ全体を削除（Zドライブ）
+    const zContentDir = path.join(Z_DRIVE_PATH, 'shared', 'materials', `content_${contentId}`);
+    if (fs.existsSync(zContentDir)) {
+      fs.rmSync(zContentDir, { recursive: true, force: true });
+      console.log(`[deleteContent] Deleted Z drive content directory: ${zContentDir}`);
+    }
+    
+    // 5. ローカルのメタデータファイルを削除
+    const localMetadataPath = path.join(DATA_DIR, 'materials', `content_${contentId}`, 'metadata.json');
+    if (fs.existsSync(localMetadataPath)) {
+      fs.unlinkSync(localMetadataPath);
+      console.log(`[deleteContent] Deleted local metadata file: ${localMetadataPath}`);
+    }
+    
+    // 6. ローカルのコンテンツディレクトリ全体を削除
+    const localContentDir = path.join(DATA_DIR, 'materials', `content_${contentId}`);
+    if (fs.existsSync(localContentDir)) {
+      fs.rmSync(localContentDir, { recursive: true, force: true });
+      console.log(`[deleteContent] Deleted local content directory: ${localContentDir}`);
+    }
+    
+    console.log(`[deleteContent] Successfully deleted content: ${contentId}`);
     return { success: true };
+  } catch (error) {
+    console.error(`[deleteContent] Error deleting content:`, error);
+    return { success: false, error: error.message };
   }
-  
-  return { success: false, error: 'Content not found' };
 }
 
 // コンテンツ詳細取得
@@ -711,9 +1203,14 @@ export async function getContentById(contentId: string) {
       return null;
     }
     
-    // 詳細情報をmetadata.jsonから取得
-    const contentDir = `content_${contentId.padStart(3, '0')}`;
-    const metadataPath = path.join(Z_DRIVE_PATH, 'shared', contentDir, 'metadata.json');
+    // 詳細情報をmetadata.jsonから取得（Zドライブ優先、フォールバックでローカル）
+    const contentDir = `content_${contentId}`;
+    let metadataPath: string;
+    if (fs.existsSync(Z_DRIVE_PATH)) {
+      metadataPath = path.join(Z_DRIVE_PATH, 'shared', 'materials', contentDir, 'metadata.json');
+    } else {
+      metadataPath = path.join(DATA_DIR, 'materials', contentDir, 'metadata.json');
+    }
     console.log(`[getContentById] Metadata path: ${metadataPath}`);
     console.log(`[getContentById] Metadata exists: ${fs.existsSync(metadataPath)}`);
     
@@ -722,6 +1219,7 @@ export async function getContentById(contentId: string) {
     let tags: string[] = [];
     let author_name = '';
     let author_sid = '';
+    let author_role = 'user';
     
     if (fs.existsSync(metadataPath)) {
       try {
@@ -739,13 +1237,36 @@ export async function getContentById(contentId: string) {
         if (metadata.content && metadata.content.trim() !== '') {
           content = metadata.content;
           console.log(`[getContentById] Found content in metadata: ${content.length} chars`);
-        } else if (metadata.files && metadata.files.length > 0) {
+        } else if (metadata.content_path) {
+          // content_pathが指定されている場合は直接読み込み
+          let contentFilePath: string;
+          if (fs.existsSync(Z_DRIVE_PATH)) {
+            contentFilePath = path.join(Z_DRIVE_PATH, 'shared', metadata.content_path);
+          } else {
+            contentFilePath = path.join(DATA_DIR, metadata.content_path);
+          }
+          console.log(`[getContentById] Reading content from content_path: ${contentFilePath}`);
+          
+          if (fs.existsSync(contentFilePath)) {
+            try {
+              content = await readFile(contentFilePath, 'utf-8');
+              console.log(`[getContentById] Content from content_path length: ${content.length} chars`);
+            } catch (error) {
+              console.error(`[getContentById] Error reading content_path file:`, error);
+              content = 'Error reading content file';
+            }
+          } else {
+            console.log(`[getContentById] Content file not found: ${contentFilePath}`);
+            content = 'Content file not found';
+          }
+        } else if ((metadata.files && metadata.files.length > 0) || (metadata.attachments && metadata.attachments.length > 0)) {
           // メインコンテンツファイルを探す
           const mainContentFiles = ['index.md', 'content.md', 'main.md', 'readme.md'];
           let mainContentFile = null;
           
-          // メインコンテンツファイルを探す
-          for (const file of metadata.files) {
+          // filesまたはattachmentsからメインコンテンツファイルを探す
+          const fileList = metadata.files || metadata.attachments || [];
+          for (const file of fileList) {
             const fileName = file.safe_name.toLowerCase();
             if (mainContentFiles.includes(fileName)) {
               mainContentFile = file;
@@ -755,7 +1276,7 @@ export async function getContentById(contentId: string) {
           
           // .mdファイルを探す
           if (!mainContentFile) {
-            for (const file of metadata.files) {
+            for (const file of fileList) {
               if (file.safe_name.toLowerCase().endsWith('.md')) {
                 mainContentFile = file;
                 break;
@@ -764,7 +1285,12 @@ export async function getContentById(contentId: string) {
           }
           
           if (mainContentFile) {
-            const filePath = path.join(Z_DRIVE_PATH, mainContentFile.path);
+            let filePath: string;
+            if (fs.existsSync(Z_DRIVE_PATH)) {
+              filePath = path.join(Z_DRIVE_PATH, 'shared', mainContentFile.path);
+            } else {
+              filePath = path.join(DATA_DIR, mainContentFile.path);
+            }
             console.log(`[getContentById] Reading main content from: ${filePath}`);
             
             if (fs.existsSync(filePath)) {
@@ -781,6 +1307,23 @@ export async function getContentById(contentId: string) {
             }
           } else {
             console.log(`[getContentById] No main content file found in metadata`);
+            content = 'No main content file found';
+          }
+        } else {
+          // metadataにcontentやfilesがない場合、content.mdファイルを直接読み込み
+          const contentFilePath = path.join(path.dirname(metadataPath), 'content.md');
+          console.log(`[getContentById] Trying to read content.md directly: ${contentFilePath}`);
+          
+          if (fs.existsSync(contentFilePath)) {
+            try {
+              content = await readFile(contentFilePath, 'utf-8');
+              console.log(`[getContentById] Direct content.md length: ${content.length} chars`);
+            } catch (error) {
+              console.error(`[getContentById] Error reading content.md:`, error);
+              content = 'Error reading content.md';
+            }
+          } else {
+            console.log(`[getContentById] content.md file not found: ${contentFilePath}`);
             content = 'No main content file found';
           }
         }
@@ -810,6 +1353,7 @@ export async function getContentById(contentId: string) {
         
         author_name = metadata.author_name || '';
         author_sid = metadata.author_sid || '';
+        author_role = metadata.author_role || 'user';
         
       } catch (error) {
         console.error(`Error reading metadata for content ${contentId}:`, error);
@@ -829,6 +1373,7 @@ export async function getContentById(contentId: string) {
       files: attachments, // フロントエンドで使用するためにfilesも追加
       author_name: author_name,
       author_sid: author_sid,
+      author_role: author_role,
       category: category ? category.name : 'Unknown Category'
     };
     

@@ -1,5 +1,1 @@
-﻿id,title,description,category_id,type,file_path,difficulty,estimated_hours,created_date,updated_date,tags
-1,Python基礎講座,Pythonプログラミングの基礎を学ぶ講座,1,article,Python基礎講座.pdf,beginner,2,2025-01-15T10:30:00Z,2025-01-15T10:30:00Z,"Python,プログラミング,基礎"
-2,React入門動画,React.jsの入門動画コンテンツ,2,video,React入門動画.mp4,intermediate,3,2025-01-20T14:45:00Z,2025-01-20T14:45:00Z,"React,JavaScript,フロントエンド"
-3,Node.js実践ガイド,Node.jsを使った実践的な開発ガイド,1,document,Node.js実践ガイド.docx,advanced,4,2025-01-25T09:15:00Z,2025-01-25T09:15:00Z,"Node.js,JavaScript,バックエンド"
-4,AWS基礎資料,Amazon Web Servicesの基礎を学ぶ資料,3,presentation,AWS基礎資料.pptx,beginner,2,2025-02-01T16:20:00Z,2025-02-01T16:20:00Z,"AWS,クラウド,インフラ"
+"id","title","description","type","category_id","difficulty","estimated_hours","tags","created_date","updated_date","created_by","is_active"

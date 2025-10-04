@@ -27,6 +27,7 @@ export interface ProgressData {
 
 export interface Material {
   id: string;
+  uuid?: string; // UUIDを追加
   title: string;
   description: string;
   category_id: string;
@@ -36,6 +37,7 @@ export interface Material {
   estimated_hours: number;
   created_date: string;
   updated_date: string;
+  dataSource?: 'server' | 'local' | 'both';
 }
 
 export interface Category {
@@ -79,8 +81,11 @@ class ApiClient {
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
           ...options.headers,
         },
+        cache: 'no-store',
         ...options,
       });
 
@@ -116,7 +121,7 @@ class ApiClient {
     console.log(`[API調査] getContent 呼び出し時刻:`, new Date().toISOString());
     console.log(`[API調査] getContent スタックトレース:`, new Error().stack);
     try {
-      const response = await this.request<any>('/api/content');
+      const response = await this.request<{ success: boolean; materials: Material[] }>('/api/content');
       console.log('Content API response:', response);
       
       // レスポンスが配列の場合はそのまま返す

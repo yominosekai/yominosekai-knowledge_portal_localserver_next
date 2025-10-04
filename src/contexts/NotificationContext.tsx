@@ -215,7 +215,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
            const pollInterval = setInterval(() => {
              console.log(`[NotificationContext] Polling notifications...`);
              fetchNotifications();
-           }, 30000); // 30秒間隔
+           }, 60000); // 60秒間隔（1分）
 
     return () => {
       console.log(`[認証ループ調査] ポーリング停止`);

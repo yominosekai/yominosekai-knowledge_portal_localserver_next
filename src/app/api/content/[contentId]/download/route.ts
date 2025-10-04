@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getContentById } from '../../../../../lib/data';
 import fs from 'fs';
 import path from 'path';
+import { CONFIG } from '../../../../../config/drive';
 
 export async function GET(
   request: NextRequest,
@@ -33,22 +34,31 @@ export async function GET(
     
     console.log(`[Download] Processing file path: ${filePath}`);
     
-    if (filePath.startsWith('shared/content_')) {
-      // Zドライブのファイルパスの場合
-      fullPath = path.join('Z:\\knowledge_portal', filePath);
-      console.log(`[Download] Z drive path: ${fullPath}`);
-    } else {
-      // ローカルファイルの場合
-      fullPath = path.resolve(filePath);
-      const contentDir = path.resolve(process.cwd(), 'data', 'materials');
+    if (filePath.startsWith('materials/content_')) {
+      // materials/content_XXX/file_XX_xxx.txt 形式の場合
+      const localPath = path.join(process.cwd(), 'data', filePath);
+      const zDrivePath = path.join(CONFIG.DRIVE_PATH, 'shared', filePath);
       
-      if (!fullPath.startsWith(contentDir)) {
-        console.log(`[Download] Invalid local file path: ${fullPath}`);
+      // Zドライブを優先、フォールバックでローカル
+      if (fs.existsSync(zDrivePath)) {
+        fullPath = zDrivePath;
+        console.log(`[Download] Using Z drive path: ${fullPath}`);
+      } else if (fs.existsSync(localPath)) {
+        fullPath = localPath;
+        console.log(`[Download] Using local path: ${fullPath}`);
+      } else {
+        console.log(`[Download] File not found in both locations: ${filePath}`);
         return NextResponse.json(
-          { success: false, error: 'Invalid file path' },
-          { status: 403 }
+          { success: false, error: 'File not found' },
+          { status: 404 }
         );
       }
+    } else {
+      console.log(`[Download] Invalid file path format: ${filePath}`);
+      return NextResponse.json(
+        { success: false, error: 'Invalid file path' },
+        { status: 403 }
+      );
     }
 
     // ファイルの存在確認
@@ -61,16 +71,19 @@ export async function GET(
       );
     }
     
-    console.log(`[Download] File found, proceeding with download`);
+    console.log(`[Download] File found: ${fullPath}`);
 
     // ファイルを読み込み
     const fileBuffer = fs.readFileSync(fullPath);
     const fileName = path.basename(fullPath);
+    
+    // 日本語ファイル名を安全にエンコード
+    const safeFileName = encodeURIComponent(fileName);
 
     // レスポンスヘッダーを設定
     const headers = new Headers();
     headers.set('Content-Type', 'application/octet-stream');
-    headers.set('Content-Disposition', `attachment; filename="${fileName}"`);
+    headers.set('Content-Disposition', `attachment; filename*=UTF-8''${safeFileName}`);
     headers.set('Content-Length', fileBuffer.length.toString());
 
     return new NextResponse(fileBuffer, {

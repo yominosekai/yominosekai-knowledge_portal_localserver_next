@@ -3,15 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { checkPermission } from '../lib/auth';
 
 interface ContentModalProps {
   content: any;
   isOpen: boolean;
   onClose: () => void;
   onProgressUpdate?: (contentId: string, status: string) => void;
+  onContentDeleted?: (contentId: string) => void;
 }
 
-export function ContentModal({ content, isOpen, onClose, onProgressUpdate }: ContentModalProps): React.ReactElement | null {
+export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onContentDeleted }: ContentModalProps): React.ReactElement | null {
   const { user } = useAuth();
   const { resolvedTheme } = useTheme();
   const [currentStatus, setCurrentStatus] = useState<string>('not_started');
@@ -156,6 +158,54 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate }: Con
     updateProgress('in_progress');
   };
 
+  const handleDeleteContent = async () => {
+    if (!user || !content) return;
+
+    // 権限チェック（instructor以上）
+    if (!checkPermission(user, 'instructor')) {
+      alert('コンテンツの削除にはinstructor以上の権限が必要です');
+      return;
+    }
+
+    // 確認ダイアログ
+    if (!confirm(`「${content.title}」を削除しますか？この操作は取り消せません。`)) {
+      return;
+    }
+
+    setIsUpdating(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/content/${content.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert('コンテンツを削除しました');
+        // 削除完了コールバックを呼び出し
+        if (onContentDeleted) {
+          onContentDeleted(content.id);
+        } else {
+          onClose(); // モーダルを閉じる
+        }
+        // ページをリロードしてコンテンツ一覧を更新
+        window.location.reload();
+      } else {
+        setError(result.error || 'コンテンツの削除に失敗しました');
+      }
+    } catch (error) {
+      console.error('コンテンツ削除エラー:', error);
+      setError('コンテンツの削除に失敗しました');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const getStatusText = (status: string) => {
     switch (status) {
       case 'completed': return '完了';
@@ -226,7 +276,14 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate }: Con
       <div className={`${resolvedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'} rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden`}>
         {/* ヘッダー */}
         <div className={`flex items-center justify-between p-6 border-b ${resolvedTheme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
-          <h2 className={`text-xl font-semibold ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'}`}>{content.title}</h2>
+          <div>
+            <h2 className={`text-xl font-semibold ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'}`}>{content.title}</h2>
+            {content.uuid && (
+              <p className={`text-sm ${resolvedTheme === 'dark' ? 'text-gray-400' : 'text-gray-500'} mt-1 font-mono`}>
+                UUID: {content.uuid}
+              </p>
+            )}
+          </div>
           <button
             onClick={onClose}
             className={`${resolvedTheme === 'dark' ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-gray-600'} text-2xl`}
@@ -265,12 +322,24 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate }: Con
                   </div>
                   <div className="flex">
                     <span className={`font-medium ${resolvedTheme === 'dark' ? 'text-gray-400' : 'text-gray-600'} w-20`}>作成者:</span>
-                    <span 
-                      className={`${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'} cursor-help`}
-                      title={contentDetails?.author_sid || 'Unknown SID'}
-                    >
-                      {contentDetails?.author_name || 'Unknown Author'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span 
+                        className={`${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'} cursor-help`}
+                        title={contentDetails?.author_sid || 'Unknown SID'}
+                      >
+                        {contentDetails?.author_name || 'Unknown Author'}
+                      </span>
+                      {contentDetails?.author_role && (
+                        <span 
+                          className={`inline-block w-3 h-3 rounded-full ${
+                            contentDetails.author_role === 'admin' ? 'bg-red-500' :
+                            contentDetails.author_role === 'instructor' ? 'bg-yellow-500' :
+                            'bg-green-500'
+                          }`}
+                          title={`Role: ${contentDetails.author_role}`}
+                        />
+                      )}
+                    </div>
                   </div>
                   <div className="flex">
                     <span className={`font-medium ${resolvedTheme === 'dark' ? 'text-gray-400' : 'text-gray-600'} w-20`}>作成日:</span>
@@ -341,7 +410,11 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate }: Con
                             console.error('ContentModal - No file path available for download');
                           }
                         }}
-                        className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                        className={`px-3 py-1 rounded text-sm transition-colors ${
+                          resolvedTheme === 'dark' 
+                            ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                            : 'bg-blue-500 text-white hover:bg-blue-600'
+                        }`}
                       >
                         ダウンロード
                       </button>
@@ -354,8 +427,6 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate }: Con
                 <h3 className={`text-lg font-semibold ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'} mb-3`}>📎 添付ファイル</h3>
                 <div className={`${resolvedTheme === 'dark' ? 'text-gray-400' : 'text-gray-500'} text-sm`}>
                   添付ファイルはありません
-                  <br />
-                  <small>Debug: attachments = {JSON.stringify(attachments)}</small>
                 </div>
               </div>
             )}
@@ -457,6 +528,17 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate }: Con
           >
             {isUpdating ? '更新中...' : '学習を開始'}
           </button>
+          
+          {/* 削除ボタン（instructor以上のみ表示） */}
+          {user && checkPermission(user, 'instructor') && (
+            <button
+              onClick={handleDeleteContent}
+              disabled={isUpdating}
+              className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+            >
+              {isUpdating ? '削除中...' : '削除'}
+            </button>
+          )}
           
           <button
             onClick={onClose}

@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     
     console.log(`[Auth GET] Authentication successful for user: ${user.username}`);
     
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       user: {
         sid: user.sid,
@@ -89,6 +89,13 @@ export async function GET(request: NextRequest) {
       },
       message: "Authentication successful"
     });
+    
+    // キャッシュ制御ヘッダーを追加
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
+    return response;
   } catch (error) {
     console.error('[Auth GET] Authentication error:', error);
     return NextResponse.json(
@@ -163,7 +170,7 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Auth POST] Authentication successful for user: ${user.username}`);
     
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       user: {
         sid: user.sid,
@@ -177,6 +184,13 @@ export async function POST(request: NextRequest) {
       },
       message: "Authentication successful"
     });
+    
+    // キャッシュ制御ヘッダーを追加
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
+    return response;
   } catch (error) {
     console.error('[Auth POST] Authentication error:', error);
     return NextResponse.json(

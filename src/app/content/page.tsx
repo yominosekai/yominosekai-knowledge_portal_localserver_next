@@ -23,34 +23,34 @@ export default function Page() {
   const [selectedContent, setSelectedContent] = useState<Material | null>(null);
   const [showContentModal, setShowContentModal] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // 認証
-        const user = await apiClient.authenticate();
-        if (user) {
-          setCurrentUserId(user.sid);
-        }
-        
-        // コンテンツとカテゴリを並行取得
-        const [materialsData, categoriesData] = await Promise.all([
-          apiClient.getContent(),
-          apiClient.getCategories()
-        ]);
-        
-        setMaterials(Array.isArray(materialsData) ? materialsData : []);
-        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
-        
-      } catch (err) {
-        console.error('データ取得エラー:', err);
-        setError('データの取得に失敗しました。しばらく待ってから再度お試しください。');
-      } finally {
-        setLoading(false);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // 認証
+      const user = await apiClient.authenticate();
+      if (user) {
+        setCurrentUserId(user.sid);
       }
-    };
+      
+      // コンテンツとカテゴリを並行取得
+      const [materialsData, categoriesData] = await Promise.all([
+        apiClient.getContent(),
+        apiClient.getCategories()
+      ]);
+      
+      setMaterials(Array.isArray(materialsData) ? materialsData : []);
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+      
+    } catch (err) {
+      console.error('データ取得エラー:', err);
+      setError('データの取得に失敗しました。しばらく待ってから再度お試しください。');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -109,6 +109,16 @@ export default function Page() {
     console.log('Progress updated:', contentId, status);
   };
 
+  const handleContentDeleted = (contentId: string) => {
+    // コンテンツ削除後の処理
+    console.log('Content deleted:', contentId);
+    // コンテンツ一覧を再取得
+    fetchData();
+    // モーダルを閉じる
+    setShowContentModal(false);
+    setSelectedContent(null);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -159,12 +169,45 @@ export default function Page() {
         {filteredMaterials.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredMaterials.map((material, index) => (
-              <div 
-                key={`material-${index}-${material.id || 'no-id'}`} 
-                className="rounded-lg bg-black/20 p-4 ring-1 ring-white/10 hover:ring-white/20 transition-colors cursor-pointer"
-                onClick={() => handleContentClick(material)}
-              >
-                <h3 className="font-semibold text-white mb-2">{material.title}</h3>
+                <div
+                  key={`material-${index}-${material.id || 'no-id'}`}
+                  className={`rounded-lg bg-black/20 p-4 ring-1 transition-colors cursor-pointer relative ${
+                    material.dataSource === 'local' 
+                      ? 'ring-dashed ring-yellow-500/50 hover:ring-yellow-500/70' 
+                      : material.dataSource === 'both'
+                      ? 'ring-dashed ring-blue-500/50 hover:ring-blue-500/70'
+                      : 'ring-white/10 hover:ring-white/20'
+                  }`}
+                  onClick={() => handleContentClick(material)}
+                >
+                  {/* データソース表示 */}
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    {material.dataSource === 'server' && (
+                      <div 
+                        className="w-3 h-3 rounded-full bg-blue-500"
+                        title="サーバーのみ"
+                      />
+                    )}
+                    {material.dataSource === 'local' && (
+                      <div 
+                        className="w-3 h-3 rounded-full bg-yellow-500"
+                        title="ローカルのみ"
+                      />
+                    )}
+                    {material.dataSource === 'both' && (
+                      <>
+                        <div 
+                          className="w-3 h-3 rounded-full bg-blue-500"
+                          title="サーバー上"
+                        />
+                        <div 
+                          className="w-3 h-3 rounded-full bg-yellow-500"
+                          title="ローカル上"
+                        />
+                      </>
+                    )}
+                  </div>
+                <h3 className="font-semibold text-white mb-2 pr-6">{material.title}</h3>
                 <p className="text-sm text-white/70 mb-3 line-clamp-2">{material.description}</p>
                 <div className="flex items-center justify-between text-xs text-white/50 mb-3">
                   <span className="capitalize">{material.difficulty}</span>
@@ -217,6 +260,7 @@ export default function Page() {
           setSelectedContent(null);
         }}
         onProgressUpdate={handleProgressUpdate}
+        onContentDeleted={handleContentDeleted}
       />
     </div>
   );

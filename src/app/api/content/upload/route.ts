@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { KNOWLEDGE_PORTAL_DRIVE_PATH, CONFIG } from '../../../../config/drive';
+import { readCSV, writeCSV } from '../../../../lib/data';
+import fs from 'fs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,11 +32,24 @@ export async function POST(request: NextRequest) {
     const contentId = Date.now().toString();
     const directoryName = `content_${contentId}`;
     
-    // ファイル保存用ディレクトリを作成
-    const uploadDir = join(process.cwd(), 'data', 'materials', directoryName);
-    await mkdir(uploadDir, { recursive: true });
+    // ファイル保存用ディレクトリを作成（Zドライブとローカルの両方）
+    const zDriveDir = join(KNOWLEDGE_PORTAL_DRIVE_PATH, 'shared', 'materials', directoryName);
+    const localDir = join(CONFIG.DATA_DIR, 'materials', directoryName);
     
-    // アップロードされたファイルを処理
+    // Zドライブにフォルダ作成
+    if (fs.existsSync(KNOWLEDGE_PORTAL_DRIVE_PATH)) {
+      await mkdir(zDriveDir, { recursive: true });
+      console.log(`[content/upload] Created Z drive directory: ${zDriveDir}`);
+    }
+    
+    // ローカルにもフォルダ作成
+    await mkdir(localDir, { recursive: true });
+    console.log(`[content/upload] Created local directory: ${localDir}`);
+    
+    // メインの作業ディレクトリを設定
+    const uploadDir = fs.existsSync(KNOWLEDGE_PORTAL_DRIVE_PATH) ? zDriveDir : localDir;
+    
+    // アップロードされたファイルを処理（Zドライブとローカルの両方に保存）
     const files = formData.getAll('files') as File[];
     const fileList: any[] = [];
     
@@ -42,11 +58,22 @@ export async function POST(request: NextRequest) {
       if (file.size > 0) {
         // ファイル名を安全にする
         const safeFileName = `file_${String(i + 1).padStart(2, '0')}_${file.name}`;
-        const filePath = join(uploadDir, safeFileName);
         
-        // ファイルを保存
+        // ファイルのバイトデータを一度だけ取得
         const bytes = await file.arrayBuffer();
-        await writeFile(filePath, Buffer.from(bytes));
+        const buffer = Buffer.from(bytes);
+        
+        // Zドライブに保存
+        if (fs.existsSync(KNOWLEDGE_PORTAL_DRIVE_PATH)) {
+          const zFilePath = join(zDriveDir, safeFileName);
+          await writeFile(zFilePath, buffer);
+          console.log(`[content/upload] Saved file to Z drive: ${zFilePath}`);
+        }
+        
+        // ローカルにも保存
+        const localFilePath = join(localDir, safeFileName);
+        await writeFile(localFilePath, buffer);
+        console.log(`[content/upload] Saved file to local: ${localFilePath}`);
         
         fileList.push({
           original_name: file.name,
@@ -57,12 +84,43 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // コンテンツファイルを作成（Markdown）
+    // コンテンツファイルを作成（Markdown）- Zドライブとローカルの両方に作成
     if (content && content.trim()) {
-      const contentPath = join(uploadDir, 'content.md');
-      await writeFile(contentPath, content, 'utf-8');
+      // Zドライブに作成
+      if (fs.existsSync(KNOWLEDGE_PORTAL_DRIVE_PATH)) {
+        const zContentPath = join(zDriveDir, 'content.md');
+        await writeFile(zContentPath, content, 'utf-8');
+        console.log(`[content/upload] Created Z drive content file: ${zContentPath}`);
+      }
+      
+      // ローカルにも作成
+      const localContentPath = join(localDir, 'content.md');
+      await writeFile(localContentPath, content, 'utf-8');
+      console.log(`[content/upload] Created local content file: ${localContentPath}`);
     }
     
+    // ユーザー情報を取得
+    const authHeader = request.headers.get('authorization');
+    const userSid = request.headers.get('x-user-sid');
+    
+    let author_name = 'Unknown Author';
+    let author_sid = '';
+    let author_role = 'user';
+    
+    try {
+      if (userSid) {
+        // ユーザー情報を取得（簡易実装）
+        author_name = 'User 1001'; // 実際の実装ではユーザー情報を取得
+        author_sid = userSid;
+        author_role = 'admin'; // 実際の実装ではユーザーロールを取得
+        console.log(`[content/upload] User info: ${author_name} (${author_sid}, ${author_role})`);
+      } else {
+        console.log(`[content/upload] No user info provided, using defaults`);
+      }
+    } catch (error) {
+      console.log(`[content/upload] Could not get user info, using default:`, error);
+    }
+
     // メタデータを作成
     const metadata = {
       id: contentId,
@@ -74,19 +132,31 @@ export async function POST(request: NextRequest) {
       estimated_hours,
       tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
       attachments: fileList,
+      files: fileList, // フロントエンドで使用するためにfilesも追加
       content_path: content ? `materials/${directoryName}/content.md` : null,
       created_date: new Date().toISOString(),
       updated_date: new Date().toISOString(),
-      created_by: 'system', // 実際の実装では認証されたユーザーIDを使用
+      created_by: 'system',
+      author_name: author_name,
+      author_sid: author_sid,
+      author_role: author_role,
       is_active: true
     };
     
-    // メタデータファイルを保存
-    const metadataPath = join(uploadDir, 'metadata.json');
-    await writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
+    // メタデータファイルを保存 - Zドライブとローカルの両方に保存
+    // Zドライブに保存
+    if (fs.existsSync(KNOWLEDGE_PORTAL_DRIVE_PATH)) {
+      const zMetadataPath = join(zDriveDir, 'metadata.json');
+      await writeFile(zMetadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
+      console.log(`[content/upload] Created Z drive metadata file: ${zMetadataPath}`);
+    }
     
-    // materials.csvに追加
-    const materialsPath = join(process.cwd(), 'data', 'materials', 'materials.csv');
+    // ローカルにも保存
+    const localMetadataPath = join(localDir, 'metadata.json');
+    await writeFile(localMetadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
+    console.log(`[content/upload] Created local metadata file: ${localMetadataPath}`);
+    
+    // materials.csvに追加 - Zドライブとローカルの両方に追加
     const csvEntry = {
       id: contentId,
       title,
@@ -102,9 +172,29 @@ export async function POST(request: NextRequest) {
       is_active: 'true'
     };
     
-    // CSVファイルに追加（簡易実装）
-    const csvLine = Object.values(csvEntry).map(value => `"${value}"`).join(',') + '\n';
-    await writeFile(materialsPath, csvLine, { flag: 'a' });
+    // CSVファイルに追加（writeCSV関数を使用）
+    let materials: any[] = [];
+    try {
+      materials = await readCSV('materials/materials.csv');
+    } catch (error) {
+      console.log(`[content/upload] CSV file not found or empty, creating new one`);
+      // CSVファイルが存在しないか空の場合、デフォルトのヘッダーで作成
+      materials = [];
+    }
+    
+    materials.push(csvEntry);
+    
+    // Zドライブに保存
+    if (fs.existsSync(KNOWLEDGE_PORTAL_DRIVE_PATH)) {
+      const zMaterialsPath = join(KNOWLEDGE_PORTAL_DRIVE_PATH, 'shared', 'materials', 'materials.csv');
+      await writeCSV(zMaterialsPath, materials);
+      console.log(`[content/upload] Added to Z drive materials.csv: ${zMaterialsPath}`);
+    }
+    
+    // ローカルにも保存
+    const localMaterialsPath = join(CONFIG.DATA_DIR, 'materials', 'materials.csv');
+    await writeCSV('materials/materials.csv', materials);
+    console.log(`[content/upload] Added to local materials.csv: ${localMaterialsPath}`);
     
     return NextResponse.json({
       success: true,
