@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getSyncStatus, smartSync, forceSync, SyncResult } from '../lib/sync';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SyncContentModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ interface SyncDetails {
 }
 
 export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }: SyncContentModalProps) {
+  const { user } = useAuth();
   const [contentItems, setContentItems] = useState<ContentItem[]>([]);
   const [syncAll, setSyncAll] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -37,21 +39,64 @@ export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }:
            lastSync: null as string | null,
            syncedCount: 0,
            localCount: 0,
+           serverOnlyCount: 0,
+           localOnlyCount: 0,
+           bothCount: 0,
            totalSize: 0,
+           details: {
+             idMismatch: { server: 0, local: 0, total: 0 },
+             timestampMismatch: { server: 0, local: 0, total: 0 }
+           },
            errors: [] as string[]
          });
 
   useEffect(() => {
     if (isOpen) {
+      // モーダルが開かれるたびに最新の状態を再計算
+      console.log('[SyncContentModal] モーダルが開かれました - 最新状態を再計算中...');
       loadSyncStatus();
       loadContentItems();
     }
   }, [isOpen]);
 
+  // モーダルが開いている間も定期的に状態を更新（5秒間隔）
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const interval = setInterval(() => {
+      console.log('[SyncContentModal] 定期更新 - 同期状態を再計算中...');
+      loadSyncStatus();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [isOpen]);
+
   const loadSyncStatus = async () => {
     try {
-      const status = await getSyncStatus();
-      setSyncInfo(status);
+      if (!user?.sid) {
+        console.error('ユーザーIDが取得できません');
+        return;
+      }
+      
+      console.log('[SyncContentModal] 同期ステータスを再計算中...');
+      // ブラウザキャッシュを回避するためにタイムスタンプ付きでAPIを呼び出し
+      const response = await fetch(`/api/sync/status?userId=${encodeURIComponent(user.sid)}&t=${Date.now()}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const status = data.status;
+        console.log('[SyncContentModal] 同期ステータス取得完了:', {
+          isConnected: status.isConnected,
+          syncedCount: status.syncedCount,
+          localCount: status.localCount,
+          serverOnlyCount: status.serverOnlyCount,
+          localOnlyCount: status.localOnlyCount,
+          bothCount: status.bothCount
+        });
+        setSyncInfo(status);
+      } else {
+        throw new Error(data.error || '同期ステータスの取得に失敗しました');
+      }
     } catch (error) {
       console.error('同期ステータス取得エラー:', error);
     }
@@ -59,8 +104,9 @@ export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }:
 
   const loadContentItems = async () => {
     try {
-      // 実際のAPIからコンテンツ一覧を取得
-      const response = await fetch('/api/content');
+      console.log('[SyncContentModal] コンテンツ一覧を再取得中...');
+      // ブラウザキャッシュを回避するためにタイムスタンプ付きでAPIを呼び出し
+      const response = await fetch(`/api/content?t=${Date.now()}`);
       const data = await response.json();
       
       if (data.success) {
@@ -71,6 +117,7 @@ export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }:
           lastModified: material.updated_date || material.created_date,
           isSelected: true
         }));
+        console.log(`[SyncContentModal] コンテンツ一覧取得完了: ${items.length}件`);
         setContentItems(items);
       }
     } catch (error) {
@@ -91,6 +138,7 @@ export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }:
 
   // スマート同期の実行
   const handleSmartSync = async () => {
+    console.log('[SyncContentModal] スマート同期開始 - モーダル状態:', { isOpen, isSyncing });
     setIsSyncing(true);
     setSyncProgress(0);
     setSyncMessage('スマート同期を開始しています...');
@@ -101,7 +149,7 @@ export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }:
       setSyncProgress(10);
       setSyncMessage('Zドライブの接続を確認中...');
       
-      const statusResponse = await getSyncStatus();
+      const statusResponse = await getSyncStatus(user?.sid || '');
       if (!statusResponse.isConnected) {
         throw new Error('Zドライブに接続できません');
       }
@@ -127,6 +175,7 @@ export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }:
       
       const syncResponse = await smartSync({
         totalContent: totalContent,
+        userId: user?.sid,
         onProgress: (progress: number, message: string) => {
           setSyncProgress(30 + (progress * 0.6)); // 30-90%の範囲
           setSyncMessage(message);
@@ -156,35 +205,48 @@ export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }:
           minute: '2-digit',
           second: '2-digit'
         });
-        // 同期完了時にsyncInfoを更新
-        console.log('[SyncModal] スマート同期完了 - 更新前:', {
-          syncedCount: syncInfo.syncedCount,
-          localCount: syncInfo.localCount,
-          newSyncedCount: syncResponse.syncedCount
-        });
-        
-        setSyncInfo(prev => {
-          const newState = { 
-            ...prev, 
-            lastSync: now,
-            syncedCount: prev.syncedCount + syncResponse.syncedCount,
-            localCount: prev.syncedCount + syncResponse.syncedCount  // 同期完了時は同じ値にする
-          };
-          console.log('[SyncModal] スマート同期完了 - 更新後:', newState);
-          return newState;
-        });
+        // 同期完了後に実際の同期ステータスを再取得
+        console.log('[SyncModal] スマート同期完了 - 同期ステータスを再取得中...');
+        try {
+          const updatedStatus = await getSyncStatus(user?.sid || '');
+          console.log('[SyncModal] 再取得した同期ステータス:', updatedStatus);
+          console.log('[SyncModal] 詳細な内訳情報:', updatedStatus.details);
+          setSyncInfo(prev => ({
+            ...prev,
+            ...updatedStatus,
+            lastSync: now
+          }));
+        } catch (error) {
+          console.error('[SyncModal] 同期ステータス再取得エラー:', error);
+          // エラーの場合は手動で更新
+          setSyncInfo(prev => ({
+            ...prev,
+            lastSync: now
+          }));
+        }
 
-        // 同期完了を親コンポーネントに通知
+        // 同期完了を親コンポーネントに通知（非同期で実行）
         if (onSyncComplete) {
-          onSyncComplete(syncResponse.syncedCount);
+          console.log('[SyncContentModal] onSyncComplete コールバックを呼び出し中...');
+          // 非同期で実行してモーダルが閉じられるのを防ぐ
+          setTimeout(() => {
+            console.log('[SyncContentModal] onSyncComplete 実行中...');
+            onSyncComplete(syncResponse.syncedCount);
+          }, 100);
         }
         
-        // コンテンツ一覧の再読み込み
+        // コンテンツ一覧の再読み込み（非同期で実行）
         if (onSuccess) {
-          onSuccess();
+          console.log('[SyncContentModal] onSuccess コールバックを呼び出し中...');
+          // 非同期で実行してモーダルが閉じられるのを防ぐ
+          setTimeout(() => {
+            console.log('[SyncContentModal] onSuccess 実行中...');
+            onSuccess();
+          }, 200);
         }
         
         // 同期完了後は画面を閉じない（自動閉じるを削除）
+        console.log('[SyncContentModal] スマート同期完了 - モーダル状態:', { isOpen, isSyncing: false });
         setIsSyncing(false);
       } else {
         throw new Error(syncResponse.message || '同期に失敗しました');
@@ -208,6 +270,7 @@ export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }:
 
     try {
       const syncResponse = await forceSync({
+        userId: user?.sid,
         onProgress: (progress: number, message: string) => {
           setSyncProgress(progress);
           setSyncMessage(message);
@@ -234,23 +297,25 @@ export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }:
           minute: '2-digit',
           second: '2-digit'
         });
-        // 同期完了時にsyncInfoを更新
-        console.log('[SyncModal] 強制同期完了 - 更新前:', {
-          syncedCount: syncInfo.syncedCount,
-          localCount: syncInfo.localCount,
-          newSyncedCount: syncResponse.syncedCount
-        });
-        
-        setSyncInfo(prev => {
-          const newState = { 
-            ...prev, 
-            lastSync: now,
-            syncedCount: prev.syncedCount + syncResponse.syncedCount,
-            localCount: prev.syncedCount + syncResponse.syncedCount  // 同期完了時は同じ値にする
-          };
-          console.log('[SyncModal] 強制同期完了 - 更新後:', newState);
-          return newState;
-        });
+        // 同期完了後に実際の同期ステータスを再取得
+        console.log('[SyncModal] 強制同期完了 - 同期ステータスを再取得中...');
+        try {
+          const updatedStatus = await getSyncStatus(user?.sid || '');
+          console.log('[SyncModal] 再取得した同期ステータス:', updatedStatus);
+          console.log('[SyncModal] 詳細な内訳情報:', updatedStatus.details);
+          setSyncInfo(prev => ({
+            ...prev,
+            ...updatedStatus,
+            lastSync: now
+          }));
+        } catch (error) {
+          console.error('[SyncModal] 同期ステータス再取得エラー:', error);
+          // エラーの場合は手動で更新
+          setSyncInfo(prev => ({
+            ...prev,
+            lastSync: now
+          }));
+        }
 
         // 同期完了を親コンポーネントに通知
         if (onSyncComplete) {
@@ -368,24 +433,75 @@ export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }:
                        <span className="text-white">{syncInfo.localCount}件</span>
                      </div>
                      
+                     {/* 詳細な内訳情報 */}
+                     {syncInfo.details && (
+                       <div className="mt-3 p-3 bg-gray-700/50 rounded-lg">
+                         <h4 className="text-sm font-medium text-white mb-2">内訳</h4>
+                         <div className="space-y-1 text-xs text-white/70">
+                           <div className="flex items-center justify-between">
+                             <span>ID不一致:</span>
+                             <span className={syncInfo.details.idMismatch.total > 0 ? "text-yellow-400" : "text-green-400"}>
+                               {syncInfo.details.idMismatch.total}件（サーバー{syncInfo.details.idMismatch.server}件、ローカル{syncInfo.details.idMismatch.local}件）
+                             </span>
+                           </div>
+                           <div className="flex items-center justify-between">
+                             <span>更新日時不一致:</span>
+                             <span className={syncInfo.details.timestampMismatch.total > 0 ? "text-orange-400" : "text-green-400"}>
+                               {syncInfo.details.timestampMismatch.total}件（サーバー{syncInfo.details.timestampMismatch.server}件、ローカル{syncInfo.details.timestampMismatch.local}件）
+                             </span>
+                           </div>
+                         </div>
+                       </div>
+                     )}
+                     
                      <div className="flex items-center justify-between">
                        <span>同期状況:</span>
                        <span className={`${
-                         syncInfo.syncedCount === syncInfo.localCount && syncInfo.syncedCount > 0 
-                           ? 'text-green-400' 
-                           : syncInfo.syncedCount > syncInfo.localCount 
-                             ? 'text-yellow-400' 
-                             : 'text-gray-400'
+                         (() => {
+                           const isSynced = syncInfo.bothCount > 0 && 
+                                          syncInfo.details.idMismatch.total === 0 && 
+                                          syncInfo.details.timestampMismatch.total === 0;
+                           const partialSync = syncInfo.bothCount > 0 && (syncInfo.details.idMismatch.total > 0 || syncInfo.details.timestampMismatch.total > 0);
+                           const needsSync = syncInfo.details.idMismatch.total > 0 || 
+                                           syncInfo.details.timestampMismatch.total > 0 ||
+                                           (syncInfo.serverOnlyCount > 0 && syncInfo.localOnlyCount === 0) ||
+                                           (syncInfo.localOnlyCount > 0 && syncInfo.serverOnlyCount === 0);
+                           
+                           if (isSynced) return 'text-green-400';
+                           if (partialSync) return 'text-blue-400';
+                           if (needsSync) return 'text-yellow-400';
+                           return 'text-gray-400';
+                         })()
                        }`}>
                          {(() => {
-                           const isSynced = syncInfo.syncedCount === syncInfo.localCount && syncInfo.syncedCount > 0;
-                           const needsSync = syncInfo.syncedCount > syncInfo.localCount;
-                           const status = isSynced ? '同期済み' : needsSync ? '同期が必要' : '未同期';
+                           // 同期済み: 両方が1件以上、かつID不一致と更新日時不一致が0件
+                           const isSynced = syncInfo.bothCount > 0 && 
+                                          syncInfo.details.idMismatch.total === 0 && 
+                                          syncInfo.details.timestampMismatch.total === 0;
+                           
+                           // 同期が必要: ID不一致または更新日時不一致がある、またはサーバーのみ・ローカルのみがある
+                           const needsSync = syncInfo.details.idMismatch.total > 0 || 
+                                           syncInfo.details.timestampMismatch.total > 0 ||
+                                           (syncInfo.serverOnlyCount > 0 && syncInfo.localOnlyCount === 0) ||
+                                           (syncInfo.localOnlyCount > 0 && syncInfo.serverOnlyCount === 0);
+                           
+                           // 部分同期: 両方があるが、まだ不一致がある
+                           const partialSync = syncInfo.bothCount > 0 && (syncInfo.details.idMismatch.total > 0 || syncInfo.details.timestampMismatch.total > 0);
+                           
+                           const status = isSynced ? '同期済み' : 
+                                        partialSync ? '部分同期' : 
+                                        needsSync ? '同期が必要' : '未同期';
                            
                            console.log('[SyncModal] 同期状況判定:', {
+                             serverOnlyCount: syncInfo.serverOnlyCount,
+                             localOnlyCount: syncInfo.localOnlyCount,
+                             bothCount: syncInfo.bothCount,
+                             idMismatch: syncInfo.details.idMismatch.total,
+                             timestampMismatch: syncInfo.details.timestampMismatch.total,
                              syncedCount: syncInfo.syncedCount,
                              localCount: syncInfo.localCount,
                              isSynced,
+                             partialSync,
                              needsSync,
                              status
                            });

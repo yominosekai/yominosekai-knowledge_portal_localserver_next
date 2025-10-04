@@ -533,7 +533,19 @@ export async function getAllContent() {
             ...acc[existingIndex], 
             ...current,
             // uuidが存在する場合は優先的に使用
-            uuid: current.uuid || acc[existingIndex].uuid
+            uuid: current.uuid || acc[existingIndex].uuid,
+            // dataSourceを明示的に保持（local > both > server の優先順位）
+            dataSource: current.dataSource === 'local' ? 'local' : 
+                       (current.dataSource === 'both' ? 'both' : acc[existingIndex].dataSource)
+          };
+        } else {
+          // 詳細情報がない場合でもdataSourceは保持
+          acc[existingIndex] = { 
+            ...acc[existingIndex], 
+            ...current,
+            // dataSourceを明示的に保持（local > both > server の優先順位）
+            dataSource: current.dataSource === 'local' ? 'local' : 
+                       (current.dataSource === 'both' ? 'both' : acc[existingIndex].dataSource)
           };
         }
       }
@@ -542,6 +554,17 @@ export async function getAllContent() {
     
     console.log(`[getAllContent] Total materials: ${allMaterials.length} (server: ${comparison.serverOnly.length}, local: ${comparison.localOnly.length}, both: ${comparison.both.length}, metadata: ${localMetadataContent.length})`);
     console.log(`[getAllContent] Unique materials after deduplication: ${uniqueMaterials.length}`);
+    
+    // デバッグ用：dataSourceの内訳を表示
+    const serverOnlyCount = uniqueMaterials.filter(m => m.dataSource === 'server').length;
+    const localOnlyCount = uniqueMaterials.filter(m => m.dataSource === 'local').length;
+    const bothCount = uniqueMaterials.filter(m => m.dataSource === 'both').length;
+    console.log(`[getAllContent] Final dataSource counts: ServerOnly=${serverOnlyCount}, LocalOnly=${localOnlyCount}, Both=${bothCount}`);
+    
+    // 各コンテンツのdataSourceを詳細表示
+    uniqueMaterials.forEach(material => {
+      console.log(`[getAllContent] Material ${material.id} (${material.title}): dataSource=${material.dataSource}`);
+    });
     
     // ID順でソート（数値として比較）
     const sortedMaterials = uniqueMaterials.sort((a, b) => {
@@ -586,9 +609,11 @@ export async function getAllContent() {
   }
 }
 
-// コンテンツ比較を取得（内部API呼び出し）
-async function getContentComparison() {
+// コンテンツ比較を取得（materials.csvレベルでの比較）
+export async function getContentComparison() {
   try {
+    console.log('[getContentComparison] Starting materials.csv level comparison');
+    
     // 内部でCSV比較ロジックを実行（API呼び出しを避ける）
     const zDrivePath = Z_DRIVE_PATH;
     const localDataPath = DATA_DIR;
@@ -602,6 +627,7 @@ async function getContentComparison() {
       const serverMaterialsPath = path.join(zDrivePath, 'shared', 'materials', 'materials.csv');
       if (fs.existsSync(serverMaterialsPath)) {
         serverMaterials = await parseCSVFile(serverMaterialsPath);
+        console.log(`[getContentComparison] Loaded ${serverMaterials.length} server materials`);
       }
     }
     
@@ -610,10 +636,14 @@ async function getContentComparison() {
     const localMaterialsPath = path.join(localDataPath, 'materials', 'materials.csv');
     if (fs.existsSync(localMaterialsPath)) {
       localMaterials = await parseCSVFile(localMaterialsPath);
+      console.log(`[getContentComparison] Loaded ${localMaterials.length} local materials`);
     }
     
-    // 差分を検出
-    return compareMaterials(serverMaterials, localMaterials);
+    // 差分を検出（materials.csvレベル）
+    const result = compareMaterials(serverMaterials, localMaterials);
+    console.log(`[getContentComparison] Comparison result: ServerOnly=${result.serverOnly.length}, LocalOnly=${result.localOnly.length}, Both=${result.both.length}`);
+    
+    return result;
   } catch (error) {
     console.error('[getContentComparison] Error:', error);
     throw error;
@@ -681,50 +711,83 @@ function compareMaterials(serverMaterials: any[], localMaterials: any[]) {
   const localOnly: any[] = [];
   const both: any[] = [];
   
+  // 詳細な内訳情報
+  const idMismatchServer: any[] = [];
+  const idMismatchLocal: any[] = [];
+  const timestampMismatchServer: any[] = [];
+  const timestampMismatchLocal: any[] = [];
+  
+  console.log(`[compareMaterials] Server materials: ${serverMaterials.length}, Local materials: ${localMaterials.length}`);
+  
   // サーバーのmaterialsをチェック
   for (const serverMaterial of serverMaterials) {
-    const localMaterial = localMaterials.find(local => local.uuid === serverMaterial.uuid);
+    const localMaterial = localMaterials.find(local => local.id === serverMaterial.id);
     if (localMaterial) {
-      // 両方に存在するかチェック（ローカルのmetadata.jsonファイルの存在も確認）
-      const hasLocalMetadata = isLocalMetadataExists(serverMaterial.id);
-      if (hasLocalMetadata) {
-        // 両方に存在
-        both.push({
-          ...serverMaterial,
-          dataSource: 'both' as const
-        });
-      } else {
-        // サーバーのみ（ローカルのmetadata.jsonが削除されている）
-        serverOnly.push({
-          ...serverMaterial,
-          dataSource: 'server' as const
-        });
+      // 両方に存在する場合、更新日時を比較
+      const serverUpdated = new Date(serverMaterial.updated_date || serverMaterial.created_date);
+      const localUpdated = new Date(localMaterial.updated_date || localMaterial.created_date);
+      
+      console.log(`[compareMaterials] Material ${serverMaterial.id}: Server=${serverUpdated.toISOString()}, Local=${localUpdated.toISOString()}`);
+      
+      if (serverUpdated.getTime() !== localUpdated.getTime()) {
+        // 更新日時が異なる場合、タイムスタンプ不一致として記録
+        if (serverUpdated.getTime() > localUpdated.getTime()) {
+          timestampMismatchServer.push(serverMaterial);
+        } else {
+          timestampMismatchLocal.push(localMaterial);
+        }
       }
+      
+      // 両方に存在する場合は「both」として分類
+      console.log(`[compareMaterials] Material ${serverMaterial.id}: Same timestamp (both)`);
+      both.push({
+        ...serverMaterial,
+        dataSource: 'both' as const
+      });
     } else {
       // サーバーのみ
+      console.log(`[compareMaterials] Material ${serverMaterial.id}: Server only`);
       serverOnly.push({
         ...serverMaterial,
         dataSource: 'server' as const
       });
+      idMismatchServer.push(serverMaterial);
     }
   }
   
   // ローカルのmaterialsをチェック（サーバーにないもの）
   for (const localMaterial of localMaterials) {
-    const serverMaterial = serverMaterials.find(server => server.uuid === localMaterial.uuid);
+    const serverMaterial = serverMaterials.find(server => server.id === localMaterial.id);
     if (!serverMaterial) {
       // ローカルのみ
+      console.log(`[compareMaterials] Material ${localMaterial.id}: Local only`);
       localOnly.push({
         ...localMaterial,
         dataSource: 'local' as const
       });
+      idMismatchLocal.push(localMaterial);
     }
   }
+  
+  console.log(`[compareMaterials] Result: ServerOnly=${serverOnly.length}, LocalOnly=${localOnly.length}, Both=${both.length}`);
+  console.log(`[compareMaterials] Details: ID不一致(サーバー=${idMismatchServer.length}, ローカル=${idMismatchLocal.length}), 更新日時不一致(サーバー=${timestampMismatchServer.length}, ローカル=${timestampMismatchLocal.length})`);
   
   return {
     serverOnly,
     localOnly,
-    both
+    both,
+    details: {
+      idMismatch: { 
+        server: idMismatchServer.length, 
+        local: idMismatchLocal.length, 
+        total: idMismatchServer.length + idMismatchLocal.length 
+      },
+      timestampMismatch: { 
+        server: timestampMismatchServer.length, 
+        local: timestampMismatchLocal.length, 
+        total: timestampMismatchServer.length + timestampMismatchLocal.length 
+      }
+    }
   };
 }
 
@@ -2386,6 +2449,81 @@ async function syncNotificationsToLocal(userId: string, notifications: Notificat
     console.log(`[syncNotificationsToLocal] Synced ${notifications.length} notifications to local`);
   } catch (error) {
     console.error(`[syncNotificationsToLocal] Error syncing notifications:`, error);
+  }
+}
+
+// ユーザー別sync.logを作成・更新
+export async function updateUserSyncLog(userId: string, syncedCount: number, skippedCount: number): Promise<void> {
+  try {
+    const userSyncDir = path.join(Z_DRIVE_PATH, 'users', userId, 'sync');
+    const userSyncLogPath = path.join(userSyncDir, 'sync.log');
+    
+    console.log(`[updateUserSyncLog] Creating sync log for user: ${userId}`);
+    console.log(`[updateUserSyncLog] Sync directory: ${userSyncDir}`);
+    console.log(`[updateUserSyncLog] Sync log path: ${userSyncLogPath}`);
+    
+    // ユーザーsyncディレクトリを作成
+    if (!fs.existsSync(userSyncDir)) {
+      console.log(`[updateUserSyncLog] Creating sync directory: ${userSyncDir}`);
+      await mkdir(userSyncDir, { recursive: true });
+    }
+    
+    // 同期ログエントリを作成
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] User ${userId}: ${syncedCount}件同期, ${skippedCount}件スキップ\n`;
+    
+    console.log(`[updateUserSyncLog] Writing log entry: ${logEntry.trim()}`);
+    
+    // ログファイルに追記
+    const appendFile = promisify(fs.appendFile);
+    await appendFile(userSyncLogPath, logEntry, 'utf-8');
+    
+    console.log(`[updateUserSyncLog] Successfully updated sync log for user ${userId}: ${syncedCount} synced, ${skippedCount} skipped`);
+  } catch (error) {
+    console.error(`[updateUserSyncLog] Error updating sync log for user ${userId}:`, error);
+  }
+}
+
+// ユーザー別sync.logから最新の同期時刻を取得
+export async function getUserLastSyncTime(userId: string): Promise<string | null> {
+  try {
+    const userSyncLogPath = path.join(Z_DRIVE_PATH, 'users', userId, 'sync', 'sync.log');
+    console.log(`[getUserLastSyncTime] Looking for sync log at: ${userSyncLogPath}`);
+    
+    if (!fs.existsSync(userSyncLogPath)) {
+      console.log(`[getUserLastSyncTime] Sync log file does not exist for user: ${userId}`);
+      return null;
+    }
+    
+    const logContent = await readFile(userSyncLogPath, 'utf-8');
+    const lines = logContent.split('\n').filter(line => line.trim());
+    
+    if (lines.length === 0) {
+      return null;
+    }
+    
+    // 最後の行から時刻を抽出
+    const lastLine = lines[lines.length - 1];
+    const match = lastLine.match(/\[(.*?)\]/);
+    
+    if (match) {
+      // UTC時刻を日本時間に変換
+      const utcTime = new Date(match[1]);
+      return utcTime.toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`[getUserLastSyncTime] Error reading sync log for user ${userId}:`, error);
+    return null;
   }
 }
 

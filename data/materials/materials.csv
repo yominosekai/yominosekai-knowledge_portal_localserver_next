@@ -1,6 +1,3 @@
 "id","title","description","type","category_id","difficulty","estimated_hours","tags","created_date","updated_date","created_by","is_active"
 "1759596560210","6回目","6回目","video","2","beginner","1","BBB","2025-10-04T16:49:20.370Z","2025-10-04T16:49:20.370Z","system","true"
-"1759596575865","7回目","7回目","exercise","2","beginner","1","FFF","2025-10-04T16:49:35.959Z","2025-10-04T16:49:35.959Z","system","true"
-"1759596707149","8回目","8回目","video","5","intermediate","1","CCC","2025-10-04T16:51:47.268Z","2025-10-04T16:51:47.268Z","system","true"
-"1759596734346","9回目","9回目","video","2","intermediate","1","FFF","2025-10-04T16:52:14.513Z","2025-10-04T16:52:14.513Z","system","true"
-"1759598147106","12回目","12回目","article","1","beginner","1","AAA","2025-10-04T17:15:47.224Z","2025-10-04T17:15:47.224Z","system","true"
+"1759605634723","13回目","13回目","video","3","intermediate","1","HTML","2025-10-04T19:20:34.887Z","2025-10-04T19:20:34.887Z","system","true"

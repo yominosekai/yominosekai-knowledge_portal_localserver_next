@@ -67,9 +67,12 @@ export default function Page() {
     console.log(`削除完了: ${deleteType}削除でUI更新`);
   };
 
-  const fetchData = async () => {
+  const loadContent = async (forceRefresh = false, manageLoading = false) => {
     try {
-      setLoading(true);
+      if (forceRefresh && manageLoading) {
+        setLoading(true);
+        console.log('[ContentPage] 強制リフレッシュ - 最新データを取得中...');
+      }
       
       // 認証
       const user = await apiClient.authenticate();
@@ -77,17 +80,35 @@ export default function Page() {
         setCurrentUserId(user.sid);
       }
       
-      // コンテンツとカテゴリを並行取得
+      // コンテンツとカテゴリを並行取得（キャッシュバスティング付き）
       const [materialsData, categoriesData] = await Promise.all([
-        apiClient.getContent(),
+        apiClient.getContent(forceRefresh),
         apiClient.getCategories()
       ]);
       
       setMaterials(Array.isArray(materialsData) ? materialsData : []);
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
       
+      if (forceRefresh) {
+        console.log(`[ContentPage] データ再取得完了: ${Array.isArray(materialsData) ? materialsData.length : 0}件のコンテンツ`);
+      }
+      
     } catch (err) {
       console.error('データ取得エラー:', err);
+      setError('データの取得に失敗しました。しばらく待ってから再度お試しください。');
+    } finally {
+      if (manageLoading) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      await loadContent(false, false);
+    } catch (err) {
+      console.error('初期データ取得エラー:', err);
       setError('データの取得に失敗しました。しばらく待ってから再度お試しください。');
     } finally {
       setLoading(false);
@@ -185,7 +206,12 @@ export default function Page() {
                      新規コンテンツ追加
                    </button>
                    <button
-                     onClick={() => setShowSyncModal(true)}
+                     onClick={async () => {
+                       console.log('[ContentPage] 同期ボタンがクリックされました - 最新データを取得中...');
+                       // 同期ボタンクリック時に最新のコンテンツデータを再取得
+                       await loadContent(true, true);
+                       setShowSyncModal(true);
+                     }}
                      className="px-4 py-2 rounded bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center gap-2"
                    >
                      <span>🔄</span>
@@ -280,18 +306,17 @@ export default function Page() {
                  // ユーザーが手動でページを更新するか、別の操作で自然に更新される
                  console.log('同期完了 - 手動でページを更新してください');
                }}
-               onSyncComplete={(syncedCount) => {
+               onSyncComplete={async (syncedCount) => {
                  // 同期完了時にUIを即座に更新
                  if (syncedCount > 0) {
                    setSyncStatus('completed');
-                   // コンテンツカードの色を即座に更新（server → both）
-                   setMaterials(prevMaterials => 
-                     prevMaterials.map(material => ({
-                       ...material,
-                       dataSource: material.dataSource === 'server' ? 'both' : material.dataSource
-                     }))
-                   );
-                   console.log(`同期完了: ${syncedCount}件同期されました`);
+                   console.log(`同期完了: ${syncedCount}件同期されました - データを再取得中...`);
+                   
+                   // 同期完了後、最新のデータを再取得して整合性を確保
+                   // ローディング状態を管理しないようにしてモーダルに影響を与えない
+                   await loadContent(true, false);
+                   
+                   console.log('[ContentPage] 同期完了後のデータ再取得が完了しました');
                  }
                }}
              />

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { CONFIG } from '../../../../../config/drive';
+import { CONFIG } from '../../../../config/drive';
 
 export async function GET() {
   try {

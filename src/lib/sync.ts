@@ -4,7 +4,15 @@ export interface SyncStatus {
   isConnected: boolean;
   lastSync: string | null;
   syncedCount: number;
+  localCount: number;
+  serverOnlyCount: number;
+  localOnlyCount: number;
+  bothCount: number;
   totalSize: number;
+  details: {
+    idMismatch: { server: number; local: number; total: number };
+    timestampMismatch: { server: number; local: number; total: number };
+  };
   errors: string[];
 }
 
@@ -13,6 +21,7 @@ export interface SyncOptions {
   selectedContent?: string[];
   forceSync?: boolean;
   totalContent?: number;
+  userId?: string;
   onProgress?: (progress: number, message: string) => void;
 }
 
@@ -27,9 +36,9 @@ export interface SyncResult {
 }
 
 // 同期ステータスを取得
-export async function getSyncStatus(): Promise<SyncStatus> {
+export async function getSyncStatus(userId: string): Promise<SyncStatus> {
   try {
-    const response = await fetch('/api/sync/status');
+    const response = await fetch(`/api/sync/status?userId=${encodeURIComponent(userId)}`);
     const data = await response.json();
     
     if (data.success) {
@@ -43,7 +52,15 @@ export async function getSyncStatus(): Promise<SyncStatus> {
       isConnected: false,
       lastSync: null,
       syncedCount: 0,
+      localCount: 0,
+      serverOnlyCount: 0,
+      localOnlyCount: 0,
+      bothCount: 0,
       totalSize: 0,
+      details: {
+        idMismatch: { server: 0, local: 0, total: 0 },
+        timestampMismatch: { server: 0, local: 0, total: 0 }
+      },
       errors: ['Zドライブに接続できません']
     };
   }

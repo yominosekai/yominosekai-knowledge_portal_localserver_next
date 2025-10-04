@@ -2,10 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { CONFIG } from '../../../../config/drive';
+import { updateUserSyncLog } from '../../../../lib/data';
 
 export async function POST(request: NextRequest) {
   try {
-    const { syncAll, selectedContent, forceSync, totalContent } = await request.json();
+    const { syncAll, selectedContent, forceSync, totalContent, userId } = await request.json();
+    
+    if (!userId) {
+      return NextResponse.json({
+        success: false,
+        message: 'ユーザーIDが必要です',
+        errors: ['ユーザーIDが指定されていません']
+      });
+    }
     
     const zDrivePath = CONFIG.DRIVE_PATH;
     const localDataPath = CONFIG.DATA_DIR;
@@ -43,6 +52,11 @@ export async function POST(request: NextRequest) {
       const message = syncedCount > 0
         ? `同期完了: ${syncedCount}件同期, ${skippedCount}件スキップ`
         : `同期スキップ: ${skippedCount}件スキップ（同期不要）`;
+
+      // ユーザー別sync.logを更新
+      if (isSuccess) {
+        await updateUserSyncLog(userId, syncedCount, skippedCount);
+      }
 
       return NextResponse.json({
         success: isSuccess,
@@ -103,18 +117,20 @@ async function smartSyncWithProgress(
   syncedCount += categoriesResult.syncedCount;
   skippedCount += categoriesResult.skippedCount;
 
-  // 3. コンテンツディレクトリの同期
-  console.log('[SmartSync] Scanning content directories...');
-  const contentDirs = fs.readdirSync(zDriveMaterialsPath)
-    .filter(dir => dir.startsWith('content_'))
-    .sort();
+  // 3. サーバーコンテンツディレクトリの同期（サーバー → ローカル）
+  console.log('[SmartSync] Scanning server content directories...');
+  const serverContentDirs = fs.existsSync(zDriveMaterialsPath) 
+    ? fs.readdirSync(zDriveMaterialsPath)
+        .filter(dir => dir.startsWith('content_'))
+        .sort()
+    : [];
 
-  const totalDirs = contentDirs.length;
-  console.log(`[SmartSync] Found ${totalDirs} content directories`);
+  const totalServerDirs = serverContentDirs.length;
+  console.log(`[SmartSync] Found ${totalServerDirs} server content directories`);
   
-  for (let i = 0; i < contentDirs.length; i++) {
-    const contentDir = contentDirs[i];
-    console.log(`[SmartSync] Processing ${i + 1}/${totalDirs}: ${contentDir}`);
+  for (let i = 0; i < serverContentDirs.length; i++) {
+    const contentDir = serverContentDirs[i];
+    console.log(`[SmartSync] Processing server ${i + 1}/${totalServerDirs}: ${contentDir}`);
 
     const result = await syncContentDirectory(
       contentDir, 
@@ -124,6 +140,26 @@ async function smartSyncWithProgress(
     
     syncedCount += result.syncedCount;
     skippedCount += result.skippedCount;
+  }
+
+  // 4. ローカルのみのコンテンツディレクトリをスキップとしてカウント
+  console.log('[SmartSync] Scanning local-only content directories...');
+  const localContentDirs = fs.existsSync(localMaterialsPath)
+    ? fs.readdirSync(localMaterialsPath)
+        .filter(dir => dir.startsWith('content_'))
+        .sort()
+    : [];
+
+  const localOnlyDirs = localContentDirs.filter(dir => 
+    !serverContentDirs.includes(dir)
+  );
+
+  console.log(`[SmartSync] Found ${localOnlyDirs.length} local-only content directories`);
+  
+  // ローカルのみのコンテンツをスキップとしてカウント
+  for (const contentDir of localOnlyDirs) {
+    console.log(`[SmartSync] Skipping local-only content: ${contentDir} (not synced to server)`);
+    skippedCount += 1; // ディレクトリ単位でスキップとしてカウント
   }
 
   console.log(`[SmartSync] Completed: ${syncedCount} synced, ${skippedCount} skipped`);
