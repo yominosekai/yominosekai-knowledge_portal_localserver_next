@@ -166,6 +166,28 @@ class ApiClient {
     }
   }
 
+  // コンテンツタイプ一覧取得
+  async getContentTypes(): Promise<any[]> {
+    try {
+      const response = await this.request<any>('/api/config/content-types');
+      return Array.isArray(response) ? response : [];
+    } catch (error) {
+      console.error('Error fetching content types:', error);
+      return [];
+    }
+  }
+
+  // 難易度レベル一覧取得
+  async getDifficultyLevels(): Promise<any[]> {
+    try {
+      const response = await this.request<any>('/api/config/difficulty-levels');
+      return Array.isArray(response) ? response : [];
+    } catch (error) {
+      console.error('Error fetching difficulty levels:', error);
+      return [];
+    }
+  }
+
   // 進捗更新
   async updateProgress(userId: string, data: {
     material_id: string;

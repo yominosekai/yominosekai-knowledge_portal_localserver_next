@@ -184,11 +184,11 @@ export function ContentTemplates({ onTemplateSelect, className = '' }: ContentTe
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'article': return '📄';
-      case 'video': return '🎥';
-      case 'exercise': return '💻';
-      case 'document': return '📋';
-      default: return '📄';
+      case 'article': return '記事';
+      case 'video': return '動画';
+      case 'exercise': return '練習';
+      case 'document': return '文書';
+      default: return '記事';
     }
   };
 

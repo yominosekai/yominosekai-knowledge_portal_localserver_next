@@ -281,25 +281,66 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
   const getFileIcon = (fileName: string) => {
     const extension = fileName.split('.').pop()?.toLowerCase();
     switch (extension) {
-      case 'pdf': return '📄';
+      case 'pdf': return 'PDF';
       case 'doc':
-      case 'docx': return '📝';
+      case 'docx': return 'Word';
       case 'xls':
-      case 'xlsx': return '📊';
+      case 'xlsx': return 'Excel';
       case 'ppt':
-      case 'pptx': return '📽️';
+      case 'pptx': return 'PowerPoint';
       case 'mp4':
       case 'avi':
-      case 'mov': return '🎥';
+      case 'mov': return '動画';
       case 'mp3':
-      case 'wav': return '🎵';
+      case 'wav': return '音声';
       case 'jpg':
       case 'jpeg':
       case 'png':
-      case 'gif': return '🖼️';
+      case 'gif': return '画像';
       case 'zip':
-      case 'rar': return '📦';
-      default: return '📄';
+      case 'rar': return '圧縮';
+      default: return 'ファイル';
+    }
+  };
+
+  const getTypeName = (type: string) => {
+    switch (type) {
+      case 'article': return '記事';
+      case 'video': return '動画';
+      case 'exercise': return '練習';
+      case 'document': return '文書';
+      default: return type;
+    }
+  };
+
+  const getDifficultyName = (difficulty: string) => {
+    switch (difficulty) {
+      case 'beginner': return '初級';
+      case 'intermediate': return '中級';
+      case 'advanced': return '上級';
+      default: return difficulty;
+    }
+  };
+
+  const getCategoryName = (category: string) => {
+    switch (category) {
+      case 'Programming': return 'プログラミング';
+      case 'Web Development': return 'Web開発';
+      case 'Database': return 'データベース';
+      case 'DevOps': return 'DevOps';
+      case 'Cybersecurity': return 'サイバーセキュリティ';
+      case 'Network Security': return 'ネットワークセキュリティ';
+      case 'Application Security': return 'アプリケーションセキュリティ';
+      case 'Cloud Computing': return 'クラウドコンピューティング';
+      case 'AWS': return 'AWS';
+      case 'Azure': return 'Azure';
+      case 'Data Science': return 'データサイエンス';
+      case 'Python': return 'Python';
+      case 'R': return 'R';
+      case 'Project Management': return 'プロジェクト管理';
+      case 'Agile': return 'アジャイル';
+      case 'Scrum': return 'スクラム';
+      default: return category;
     }
   };
 
@@ -342,15 +383,15 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
                   </div>
                   <div className="flex">
                     <span className={`font-medium ${resolvedTheme === 'dark' ? 'text-gray-400' : 'text-gray-600'} w-20`}>タイプ:</span>
-                    <span className={`${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'} capitalize`}>{content.type}</span>
+                    <span className={`${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'}`}>{getTypeName(content.type)}</span>
                   </div>
                   <div className="flex">
                     <span className={`font-medium ${resolvedTheme === 'dark' ? 'text-gray-400' : 'text-gray-600'} w-20`}>カテゴリ:</span>
-                    <span className={`${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'}`}>{contentDetails?.category || 'Unknown Category'}</span>
+                    <span className={`${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'}`}>{getCategoryName(contentDetails?.category || 'Unknown Category')}</span>
                   </div>
                   <div className="flex">
                     <span className={`font-medium ${resolvedTheme === 'dark' ? 'text-gray-400' : 'text-gray-600'} w-20`}>難易度:</span>
-                    <span className={`${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'} capitalize`}>{content.difficulty}</span>
+                    <span className={`${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'}`}>{getDifficultyName(content.difficulty)}</span>
                   </div>
                   <div className="flex">
                     <span className={`font-medium ${resolvedTheme === 'dark' ? 'text-gray-400' : 'text-gray-600'} w-20`}>時間:</span>
@@ -424,7 +465,6 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
                 <div className="space-y-2">
                   {attachments.map((file, index) => (
                     <div key={index} className={`flex items-center p-3 ${resolvedTheme === 'dark' ? 'bg-gray-700' : 'bg-white'} rounded border ${resolvedTheme === 'dark' ? 'border-gray-600' : 'border-gray-200'}`}>
-                      <span className="text-2xl mr-3">{getFileIcon(file.original_name || file.safe_name || file.name)}</span>
                       <div className="flex-1">
                         <div className={`font-medium ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
                           {file.original_name || file.safe_name || file.name || 'Unknown'}

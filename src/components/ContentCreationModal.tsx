@@ -37,20 +37,29 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [categories, setCategories] = useState<any[]>([]);
+  const [contentTypes, setContentTypes] = useState<any[]>([]);
+  const [difficultyLevels, setDifficultyLevels] = useState<any[]>([]);
 
-  // カテゴリを読み込み
+  // 設定データを読み込み
   React.useEffect(() => {
     if (isOpen) {
-      loadCategories();
+      loadConfigData();
     }
   }, [isOpen]);
 
-  const loadCategories = async () => {
+  const loadConfigData = async () => {
     try {
-      const cats = await apiClient.getCategories();
+      const [cats, types, difficulties] = await Promise.all([
+        apiClient.getCategories(),
+        apiClient.getContentTypes(),
+        apiClient.getDifficultyLevels()
+      ]);
+      
       setCategories(cats);
+      setContentTypes(types);
+      setDifficultyLevels(difficulties);
     } catch (error) {
-      console.error('カテゴリの読み込みに失敗:', error);
+      console.error('設定データの読み込みに失敗:', error);
     }
   };
 
@@ -282,10 +291,11 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
                   required
                 >
                   <option value="">選択してください</option>
-                  <option value="article">記事</option>
-                  <option value="video">動画</option>
-                  <option value="exercise">練習</option>
-                  <option value="document">文書</option>
+                  {contentTypes.map(type => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               
@@ -329,9 +339,11 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
                   required
                 >
                   <option value="">選択してください</option>
-                  <option value="beginner">初級</option>
-                  <option value="intermediate">中級</option>
-                  <option value="advanced">上級</option>
+                  {difficultyLevels.map(level => (
+                    <option key={level.id} value={level.id}>
+                      {level.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               
@@ -434,23 +446,23 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
             
             {uploadedFiles.length > 0 && (
               <div className="mt-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">選択されたファイル:</h4>
+                <h4 className={`text-sm font-medium ${resolvedTheme === 'dark' ? 'text-gray-300' : 'text-gray-700'} mb-2`}>選択されたファイル:</h4>
                 <div className="space-y-2">
                   {uploadedFiles.map(file => (
-                    <div key={file.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                    <div key={file.id} className={`flex items-center justify-between p-3 ${resolvedTheme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'} rounded-md`}>
                       <div className="flex items-center space-x-3">
                         {file.preview && (
                           <img src={file.preview} alt="Preview" className="w-8 h-8 object-cover rounded" />
                         )}
                         <div>
-                          <p className="text-sm font-medium">{file.file.name}</p>
-                          <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                          <p className={`text-sm font-medium ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-800'}`}>{file.file.name}</p>
+                          <p className={`text-xs ${resolvedTheme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{formatFileSize(file.size)}</p>
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => removeFile(file.id)}
-                        className="text-red-500 hover:text-red-700"
+                        className={`${resolvedTheme === 'dark' ? 'text-red-400 hover:text-red-300' : 'text-red-500 hover:text-red-700'}`}
                       >
                         ×
                       </button>

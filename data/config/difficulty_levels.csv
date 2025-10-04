@@ -1,0 +1,4 @@
+id,name,description,icon,color,parent_id,level
+beginner,初級,基礎的な内容,,green,,
+intermediate,中級,応用的な内容,,yellow,,
+advanced,上級,専門的な内容,,red,,

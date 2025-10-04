@@ -1,0 +1,5 @@
+id,name,description,icon,color,parent_id,level
+article,記事,テキストベースの学習コンテンツ,,,,
+video,動画,動画形式の学習コンテンツ,,,,
+exercise,練習,実践的な演習問題,,,,
+document,文書,参考資料やドキュメント,,,,

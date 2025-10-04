@@ -374,16 +374,90 @@ export async function updateUserData(userId: string, data: any) {
   }
 }
 
-// ユーザー活動データの取得
+// ユーザー活動データの取得（Zドライブ優先、ローカルフォールバック）
 export async function getUserActivities(userId: string) {
-  const activitiesPath = `users/${userId}/activities.json`;
-  const activities = await readJSON(activitiesPath);
-  
-  if (!activities) {
-    return { success: true, activities: [] };
+  try {
+    console.log(`[getUserActivities] Getting activities for user: ${userId}`);
+    
+    // Zドライブから取得を試行
+    const zActivitiesPath = path.join(Z_DRIVE_PATH, 'users', userId, 'activities.json');
+    console.log(`[getUserActivities] Z drive activities path: ${zActivitiesPath}`);
+    
+    let activities: any = null;
+    
+    if (fs.existsSync(zActivitiesPath)) {
+      console.log(`[getUserActivities] Found activities file on Z drive`);
+      try {
+        const content = await readFile(zActivitiesPath, 'utf-8');
+        if (content.trim()) {
+          // BOMを除去してJSONパース
+          const cleanContent = content.replace(/^\uFEFF/, '').trim();
+          activities = JSON.parse(cleanContent);
+          console.log(`[getUserActivities] Found ${activities.activities?.length || 0} activities on Z drive`);
+          
+          // ローカルにもコピー（フォールバック用）
+          await syncActivitiesToLocal(userId, activities);
+        } else {
+          console.log(`[getUserActivities] Z drive file is empty, trying local fallback`);
+          activities = null;
+        }
+      } catch (error) {
+        console.error(`[getUserActivities] Error parsing Z drive JSON:`, error);
+        console.log(`[getUserActivities] Trying local fallback`);
+        activities = null;
+      }
+    } else {
+      // Zドライブにない場合はローカルから取得
+      console.log(`[getUserActivities] Z drive activities not found, trying local`);
+      const localActivitiesPath = path.join(DATA_DIR, 'users', userId, 'activities.json');
+      
+      if (fs.existsSync(localActivitiesPath)) {
+        console.log(`[getUserActivities] Found local activities file`);
+        try {
+          const content = await readFile(localActivitiesPath, 'utf-8');
+          if (content.trim()) {
+            activities = JSON.parse(content);
+            console.log(`[getUserActivities] Found ${activities.activities?.length || 0} activities locally`);
+          } else {
+            console.log(`[getUserActivities] Local file is empty`);
+            activities = null;
+          }
+        } catch (error) {
+          console.error(`[getUserActivities] Error parsing local JSON:`, error);
+          activities = null;
+        }
+      } else {
+        console.log(`[getUserActivities] No activities file found anywhere`);
+        return { success: true, activities: [] };
+      }
+    }
+    
+    if (!activities) {
+      return { success: true, activities: [] };
+    }
+    
+    return { success: true, activities: activities.activities || [] };
+  } catch (error) {
+    console.error(`[getUserActivities] Error getting activities:`, error);
+    return { success: false, activities: [] };
   }
-  
-  return { success: true, activities: activities.activities || [] };
+}
+
+// アクティビティをローカルに同期
+async function syncActivitiesToLocal(userId: string, activities: any): Promise<void> {
+  try {
+    const localActivitiesPath = path.join(DATA_DIR, 'users', userId, 'activities.json');
+    const localUserDir = path.join(DATA_DIR, 'users', userId);
+    
+    if (!fs.existsSync(localUserDir)) {
+      await fs.mkdir(localUserDir, { recursive: true });
+    }
+    
+    await writeFile(localActivitiesPath, JSON.stringify(activities, null, 2), 'utf-8');
+    console.log(`[syncActivitiesToLocal] Synced activities to local: ${localActivitiesPath}`);
+  } catch (error) {
+    console.error(`[syncActivitiesToLocal] Error syncing activities to local:`, error);
+  }
 }
 
 // ユーザー活動データの更新

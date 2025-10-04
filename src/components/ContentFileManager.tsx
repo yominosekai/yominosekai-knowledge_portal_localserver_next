@@ -115,14 +115,14 @@ export function ContentFileManager({ contentId, onFilesChange }: ContentFileMana
   };
 
   const getFileIcon = (mimeType: string): string => {
-    if (mimeType.startsWith('image/')) return '🖼️';
-    if (mimeType.startsWith('video/')) return '🎥';
-    if (mimeType.startsWith('audio/')) return '🎵';
-    if (mimeType === 'application/pdf') return '📄';
-    if (mimeType.includes('word')) return '📝';
-    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '📊';
-    if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '📽️';
-    return '📎';
+    if (mimeType.startsWith('image/')) return '画像';
+    if (mimeType.startsWith('video/')) return '動画';
+    if (mimeType.startsWith('audio/')) return '音声';
+    if (mimeType === 'application/pdf') return 'PDF';
+    if (mimeType.includes('word')) return 'Word';
+    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'Excel';
+    if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return 'PowerPoint';
+    return 'ファイル';
   };
 
   if (loading) {
