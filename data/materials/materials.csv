@@ -1,2 +1,4 @@
 "id","title","description","type","category_id","difficulty","estimated_hours","tags","created_date","updated_date","created_by","is_active"
 "1759583628556","新規テスト10.04＿1回目","新規テスト10.04＿1回目","exercise","5","beginner","1","HTML","2025-10-04T13:13:48.682Z","2025-10-04T13:13:48.682Z","system","true"
+"1759588905724","新規テスト10.04＿2回目","新規テスト10.04＿2回目","article","2","advanced","1","CSV","2025-10-04T14:41:45.878Z","2025-10-04T14:41:45.878Z","system","true"
+"1759589051621","新規テスト10.04＿3回目","新規テスト10.04＿3回目","video","3","intermediate","1","HTML","2025-10-04T14:44:11.784Z","2025-10-04T14:44:11.784Z","system","true"

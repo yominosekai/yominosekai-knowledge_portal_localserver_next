@@ -158,7 +158,7 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
     updateProgress('in_progress');
   };
 
-  const handleDeleteContent = async () => {
+  const handleDeleteLocalContent = async () => {
     if (!user || !content) return;
 
     // 権限チェック（instructor以上）
@@ -168,7 +168,7 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
     }
 
     // 確認ダイアログ
-    if (!confirm(`「${content.title}」を削除しますか？この操作は取り消せません。`)) {
+    if (!confirm(`「${content.title}」をローカルから削除しますか？この操作は取り消せません。`)) {
       return;
     }
 
@@ -176,7 +176,7 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
     setError(null);
 
     try {
-      const response = await fetch(`/api/content/${content.id}`, {
+      const response = await fetch(`/api/content/${content.id}/delete-local`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -186,7 +186,7 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
       const result = await response.json();
 
       if (result.success) {
-        alert('コンテンツを削除しました');
+        alert('ローカルのコンテンツを削除しました');
         // 削除完了コールバックを呼び出し
         if (onContentDeleted) {
           onContentDeleted(content.id);
@@ -196,11 +196,59 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
         // ページをリロードしてコンテンツ一覧を更新
         window.location.reload();
       } else {
-        setError(result.error || 'コンテンツの削除に失敗しました');
+        setError(result.error || 'ローカルコンテンツの削除に失敗しました');
       }
     } catch (error) {
-      console.error('コンテンツ削除エラー:', error);
-      setError('コンテンツの削除に失敗しました');
+      console.error('ローカルコンテンツ削除エラー:', error);
+      setError('ローカルコンテンツの削除に失敗しました');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteServerContent = async () => {
+    if (!user || !content) return;
+
+    // 権限チェック（instructor以上）
+    if (!checkPermission(user, 'instructor')) {
+      alert('コンテンツの削除にはinstructor以上の権限が必要です');
+      return;
+    }
+
+    // 確認ダイアログ
+    if (!confirm(`「${content.title}」をサーバーから削除しますか？この操作は取り消せません。`)) {
+      return;
+    }
+
+    setIsUpdating(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/content/${content.id}/delete-server`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert('サーバーのコンテンツを削除しました');
+        // 削除完了コールバックを呼び出し
+        if (onContentDeleted) {
+          onContentDeleted(content.id);
+        } else {
+          onClose(); // モーダルを閉じる
+        }
+        // ページをリロードしてコンテンツ一覧を更新
+        window.location.reload();
+      } else {
+        setError(result.error || 'サーバーコンテンツの削除に失敗しました');
+      }
+    } catch (error) {
+      console.error('サーバーコンテンツ削除エラー:', error);
+      setError('サーバーコンテンツの削除に失敗しました');
     } finally {
       setIsUpdating(false);
     }
@@ -531,13 +579,24 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
           
           {/* 削除ボタン（instructor以上のみ表示） */}
           {user && checkPermission(user, 'instructor') && (
-            <button
-              onClick={handleDeleteContent}
-              disabled={isUpdating}
-              className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
-            >
-              {isUpdating ? '削除中...' : '削除'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDeleteLocalContent}
+                disabled={isUpdating}
+                className="px-3 py-2 rounded bg-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-50 transition-colors text-sm"
+                title="ローカルのみ削除"
+              >
+                {isUpdating ? '削除中...' : 'ローカル削除'}
+              </button>
+              <button
+                onClick={handleDeleteServerContent}
+                disabled={isUpdating}
+                className="px-3 py-2 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 transition-colors text-sm"
+                title="サーバーのみ削除"
+              >
+                {isUpdating ? '削除中...' : 'サーバー削除'}
+              </button>
+            </div>
           )}
           
           <button

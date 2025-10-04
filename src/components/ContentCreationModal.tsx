@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 interface ContentCreationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (newContent?: any) => void;
 }
 
 interface UploadedFile {
@@ -166,7 +166,31 @@ export function ContentCreationModal({ isOpen, onClose, onSuccess }: ContentCrea
       
       if (result.success) {
         alert('コンテンツが正常にアップロードされました');
-        onSuccess();
+        // 新しいコンテンツ情報を返す（実際のサーバーから取得したIDを使用）
+        const newContent = {
+          id: result.contentId,
+          title: formData.title,
+          description: formData.description,
+          type: formData.type,
+          category_id: formData.category_id,
+          difficulty: formData.difficulty,
+          estimated_hours: formData.estimated_hours,
+          tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+          content: formData.content,
+          created_date: new Date().toISOString(),
+          updated_date: new Date().toISOString(),
+          author_name: user?.display_name || 'Unknown Author',
+          author_sid: user?.sid || '',
+          author_role: user?.role || 'user',
+          category: categories.find(cat => cat.id === formData.category_id)?.name || 'Unknown',
+          attachments: uploadedFiles.map(file => ({
+            id: file.id,
+            name: file.file.name,
+            size: file.size,
+            type: file.type
+          }))
+        };
+        onSuccess(newContent);
         onClose();
         resetForm();
       } else {

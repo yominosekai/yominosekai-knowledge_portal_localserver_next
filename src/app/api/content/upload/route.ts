@@ -199,6 +199,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'コンテンツが正常にアップロードされました',
+      contentId: contentId,
       content: metadata
     });
     

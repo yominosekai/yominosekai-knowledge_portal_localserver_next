@@ -38,9 +38,15 @@ export async function POST(request: NextRequest) {
 
       const duration = Date.now() - startTime;
 
+      // 同期の成功判定：同期されたファイルがあるか、スキップされたファイルがあるか、または強制同期の場合
+      const isSuccess = syncedCount > 0 || skippedCount > 0 || forceSync;
+      const message = syncedCount > 0
+        ? `同期完了: ${syncedCount}件同期, ${skippedCount}件スキップ`
+        : `同期スキップ: ${skippedCount}件スキップ（同期不要）`;
+
       return NextResponse.json({
-        success: true,
-        message: `同期完了: ${syncedCount}件同期, ${skippedCount}件スキップ`,
+        success: isSuccess,
+        message,
         syncedCount,
         skippedCount,
         duration: `${duration}ms`,
@@ -74,12 +80,12 @@ async function smartSyncWithProgress(
   localDataPath: string, 
   totalContent: number
 ) {
-  const zDriveSharedPath = path.join(zDrivePath, 'shared');
-  const localSharedPath = path.join(localDataPath, 'shared');
+  const zDriveMaterialsPath = path.join(zDrivePath, 'shared', 'materials');
+  const localMaterialsPath = path.join(localDataPath, 'materials');
   
   // ローカルディレクトリの作成
-  if (!fs.existsSync(localSharedPath)) {
-    fs.mkdirSync(localSharedPath, { recursive: true });
+  if (!fs.existsSync(localMaterialsPath)) {
+    fs.mkdirSync(localMaterialsPath, { recursive: true });
   }
 
   let syncedCount = 0;
@@ -87,19 +93,19 @@ async function smartSyncWithProgress(
 
   // 1. materials.csvの同期
   console.log('[SmartSync] Syncing materials.csv...');
-  const materialsResult = await syncMaterialsCSV(zDriveSharedPath, localSharedPath);
+  const materialsResult = await syncMaterialsCSV(zDriveMaterialsPath, localMaterialsPath);
   syncedCount += materialsResult.syncedCount;
   skippedCount += materialsResult.skippedCount;
 
   // 2. categories.csvの同期
   console.log('[SmartSync] Syncing categories.csv...');
-  const categoriesResult = await syncCategoriesCSV(zDriveSharedPath, localSharedPath);
+  const categoriesResult = await syncCategoriesCSV(zDriveMaterialsPath, localMaterialsPath);
   syncedCount += categoriesResult.syncedCount;
   skippedCount += categoriesResult.skippedCount;
 
   // 3. コンテンツディレクトリの同期
   console.log('[SmartSync] Scanning content directories...');
-  const contentDirs = fs.readdirSync(zDriveSharedPath)
+  const contentDirs = fs.readdirSync(zDriveMaterialsPath)
     .filter(dir => dir.startsWith('content_'))
     .sort();
 
@@ -112,8 +118,8 @@ async function smartSyncWithProgress(
 
     const result = await syncContentDirectory(
       contentDir, 
-      zDriveSharedPath, 
-      localSharedPath
+      zDriveMaterialsPath, 
+      localMaterialsPath
     );
     
     syncedCount += result.syncedCount;
@@ -148,7 +154,11 @@ async function syncContentDirectory(
   if (!fs.existsSync(destPath)) {
     console.log(`[SmartSync] New directory ${contentDir}`);
     fs.cpSync(sourcePath, destPath, { recursive: true });
-    syncedCount++;
+    
+    // コピーされたファイル数をカウント
+    const copiedFiles = getAllFiles(destPath);
+    syncedCount += copiedFiles.length;
+    console.log(`[SmartSync] Copied ${copiedFiles.length} files from ${contentDir}`);
     return { syncedCount, skippedCount };
   }
 
@@ -163,6 +173,7 @@ async function syncContentDirectory(
       // 新規ファイル
       fs.copyFileSync(sourceFile, destFile);
       syncedCount++;
+      console.log(`[SmartSync] New file: ${file}`);
     } else {
       // 既存ファイルのタイムスタンプ比較
       const sourceStats = fs.statSync(sourceFile);
@@ -171,8 +182,10 @@ async function syncContentDirectory(
       if (sourceStats.mtime > destStats.mtime) {
         fs.copyFileSync(sourceFile, destFile);
         syncedCount++;
+        console.log(`[SmartSync] Synced file: ${file}`);
       } else {
         skippedCount++;
+        console.log(`[SmartSync] Skipped file: ${file} (local newer or same timestamp)`);
       }
     }
   }
@@ -227,8 +240,8 @@ async function writeSyncLog(zDrivePath: string, syncedCount: number, skippedCoun
 
 // materials.csvの同期
 async function syncMaterialsCSV(sourceBase: string, destBase: string) {
-  const sourceFile = path.join(sourceBase, 'materials', 'materials.csv');
-  const destFile = path.join(destBase, 'materials', 'materials.csv');
+  const sourceFile = path.join(sourceBase, 'materials.csv');
+  const destFile = path.join(destBase, 'materials.csv');
   
   if (!fs.existsSync(sourceFile)) {
     return { syncedCount: 0, skippedCount: 0 };
@@ -250,9 +263,15 @@ async function syncMaterialsCSV(sourceBase: string, destBase: string) {
   const sourceStats = fs.statSync(sourceFile);
   const destStats = fs.statSync(destFile);
   
-  if (sourceStats.mtime > destStats.mtime) {
+  console.log(`[SmartSync] materials.csv timestamps - Server: ${sourceStats.mtime.toISOString()}, Local: ${destStats.mtime.toISOString()}`);
+  
+  // ファイル内容の比較も行う
+  const sourceContent = fs.readFileSync(sourceFile, 'utf8');
+  const destContent = fs.readFileSync(destFile, 'utf8');
+  
+  if (sourceStats.mtime > destStats.mtime || sourceContent !== destContent) {
     fs.copyFileSync(sourceFile, destFile);
-    console.log('[SmartSync] Updated materials.csv (newer on server)');
+    console.log('[SmartSync] Updated materials.csv (newer on server or content differs)');
     return { syncedCount: 1, skippedCount: 0 };
   } else {
     console.log('[SmartSync] Skipped materials.csv (up to date)');
@@ -262,8 +281,8 @@ async function syncMaterialsCSV(sourceBase: string, destBase: string) {
 
 // categories.csvの同期
 async function syncCategoriesCSV(sourceBase: string, destBase: string) {
-  const sourceFile = path.join(sourceBase, 'categories', 'categories.csv');
-  const destFile = path.join(destBase, 'categories', 'categories.csv');
+  const sourceFile = path.join(sourceBase, 'categories.csv');
+  const destFile = path.join(destBase, 'categories.csv');
   
   if (!fs.existsSync(sourceFile)) {
     return { syncedCount: 0, skippedCount: 0 };

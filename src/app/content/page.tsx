@@ -22,6 +22,7 @@ export default function Page() {
   const [searchFilters, setSearchFilters] = useState<any>({});
   const [selectedContent, setSelectedContent] = useState<Material | null>(null);
   const [showContentModal, setShowContentModal] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'pending' | 'completed'>('pending'); // 同期状況の状態管理
 
   const fetchData = async () => {
     try {
@@ -238,16 +239,38 @@ export default function Page() {
              <SyncContentModal
                isOpen={showSyncModal}
                onClose={() => setShowSyncModal(false)}
+               onSuccess={() => {
+                 // 同期完了後は自動再読み込みしない
+                 // ユーザーが手動でページを更新するか、別の操作で自然に更新される
+                 console.log('同期完了 - 手動でページを更新してください');
+               }}
+               onSyncComplete={(syncedCount) => {
+                 // 同期完了時にUIを即座に更新
+                 if (syncedCount > 0) {
+                   setSyncStatus('completed');
+                   // コンテンツカードの色を即座に更新（server → both）
+                   setMaterials(prevMaterials => 
+                     prevMaterials.map(material => ({
+                       ...material,
+                       dataSource: material.dataSource === 'server' ? 'both' : material.dataSource
+                     }))
+                   );
+                   console.log(`同期完了: ${syncedCount}件同期されました`);
+                 }
+               }}
              />
              
              {/* コンテンツ作成モーダル */}
              <ContentCreationModal
                isOpen={showCreateModal}
                onClose={() => setShowCreateModal(false)}
-               onSuccess={() => {
+               onSuccess={(newContent) => {
                  setShowCreateModal(false);
-                 // コンテンツリストを再読み込み
-                 window.location.reload();
+                 // 新しいコンテンツをリアルタイムで追加（黄+青カード）
+                 if (newContent) {
+                   setMaterials(prev => [...prev, { ...newContent, dataSource: 'both' }]);
+                   console.log('新規コンテンツ追加: リアルタイムUI更新完了');
+                 }
                }}
              />
 

@@ -7,6 +7,7 @@ interface SyncContentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  onSyncComplete?: (syncedCount: number) => void; // 同期完了時に呼び出される
 }
 
 interface ContentItem {
@@ -24,7 +25,7 @@ interface SyncDetails {
   totalContent: number;
 }
 
-export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModalProps) {
+export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }: SyncContentModalProps) {
   const [contentItems, setContentItems] = useState<ContentItem[]>([]);
   const [syncAll, setSyncAll] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -134,7 +135,10 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
 
       if (syncResponse.success) {
         setSyncProgress(100);
-        setSyncMessage(`同期完了: ${syncResponse.syncedCount}件同期, ${syncResponse.skippedCount}件スキップ`);
+        const message = syncResponse.syncedCount > 0 
+          ? `同期完了: ${syncResponse.syncedCount}件同期, ${syncResponse.skippedCount}件スキップ`
+          : `同期スキップ: ${syncResponse.skippedCount}件スキップ（同期不要）`;
+        setSyncMessage(message);
         setSyncDetails({
           syncedCount: syncResponse.syncedCount || 0,
           skippedCount: syncResponse.skippedCount || 0,
@@ -152,8 +156,29 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
           minute: '2-digit',
           second: '2-digit'
         });
-        setSyncInfo(prev => ({ ...prev, lastSync: now }));
+        // 同期完了時にsyncInfoを更新
+        console.log('[SyncModal] スマート同期完了 - 更新前:', {
+          syncedCount: syncInfo.syncedCount,
+          localCount: syncInfo.localCount,
+          newSyncedCount: syncResponse.syncedCount
+        });
+        
+        setSyncInfo(prev => {
+          const newState = { 
+            ...prev, 
+            lastSync: now,
+            syncedCount: prev.syncedCount + syncResponse.syncedCount,
+            localCount: prev.syncedCount + syncResponse.syncedCount  // 同期完了時は同じ値にする
+          };
+          console.log('[SyncModal] スマート同期完了 - 更新後:', newState);
+          return newState;
+        });
 
+        // 同期完了を親コンポーネントに通知
+        if (onSyncComplete) {
+          onSyncComplete(syncResponse.syncedCount);
+        }
+        
         // コンテンツ一覧の再読み込み
         if (onSuccess) {
           onSuccess();
@@ -209,8 +234,29 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
           minute: '2-digit',
           second: '2-digit'
         });
-        setSyncInfo(prev => ({ ...prev, lastSync: now }));
+        // 同期完了時にsyncInfoを更新
+        console.log('[SyncModal] 強制同期完了 - 更新前:', {
+          syncedCount: syncInfo.syncedCount,
+          localCount: syncInfo.localCount,
+          newSyncedCount: syncResponse.syncedCount
+        });
+        
+        setSyncInfo(prev => {
+          const newState = { 
+            ...prev, 
+            lastSync: now,
+            syncedCount: prev.syncedCount + syncResponse.syncedCount,
+            localCount: prev.syncedCount + syncResponse.syncedCount  // 同期完了時は同じ値にする
+          };
+          console.log('[SyncModal] 強制同期完了 - 更新後:', newState);
+          return newState;
+        });
 
+        // 同期完了を親コンポーネントに通知
+        if (onSyncComplete) {
+          onSyncComplete(syncResponse.syncedCount);
+        }
+        
         if (onSuccess) {
           onSuccess();
         }
@@ -331,11 +377,21 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
                              ? 'text-yellow-400' 
                              : 'text-gray-400'
                        }`}>
-                         {syncInfo.syncedCount === syncInfo.localCount && syncInfo.syncedCount > 0 
-                           ? '同期済み' 
-                           : syncInfo.syncedCount > syncInfo.localCount 
-                             ? '同期が必要' 
-                             : '未同期'}
+                         {(() => {
+                           const isSynced = syncInfo.syncedCount === syncInfo.localCount && syncInfo.syncedCount > 0;
+                           const needsSync = syncInfo.syncedCount > syncInfo.localCount;
+                           const status = isSynced ? '同期済み' : needsSync ? '同期が必要' : '未同期';
+                           
+                           console.log('[SyncModal] 同期状況判定:', {
+                             syncedCount: syncInfo.syncedCount,
+                             localCount: syncInfo.localCount,
+                             isSynced,
+                             needsSync,
+                             status
+                           });
+                           
+                           return status;
+                         })()}
                        </span>
                      </div>
                      
@@ -428,14 +484,19 @@ export function SyncContentModal({ isOpen, onClose, onSuccess }: SyncContentModa
                  {/* 同期結果の表示 */}
                  {syncDetails && (
                    <div className={`mb-6 p-3 border rounded-lg transition-colors duration-500 ${
-                     syncDetails.syncedCount > 0 || syncDetails.skippedCount > 0
+                     syncDetails.syncedCount > 0
                        ? 'border-green-500/30 bg-green-500/10' 
+                       : syncDetails.skippedCount > 0
+                       ? 'border-yellow-500/30 bg-yellow-500/10'
                        : 'border-white/10'
                    }`}>
                      <h3 className="font-semibold text-white mb-2">
                        ファイル単位同期結果
-                       {(syncDetails.syncedCount > 0 || syncDetails.skippedCount > 0) && (
+                       {syncDetails.syncedCount > 0 && (
                          <span className="ml-2 text-green-400 text-sm">✓ 同期完了</span>
+                       )}
+                       {syncDetails.syncedCount === 0 && syncDetails.skippedCount > 0 && (
+                         <span className="ml-2 text-yellow-400 text-sm">⚠ 同期スキップ</span>
                        )}
                      </h3>
                      <div className="text-sm text-white/70 space-y-1">

@@ -1186,6 +1186,112 @@ export async function deleteContent(contentId: string) {
   }
 }
 
+// ローカルのみ削除
+export async function deleteLocalContent(contentId: string) {
+  try {
+    console.log(`[deleteLocalContent] Deleting local content: ${contentId}`);
+    
+    // 直接materials.csvから読み込んで確認
+    let materials: any[] = [];
+    try {
+      materials = await readCSV('materials/materials.csv');
+    } catch (error) {
+      console.log(`[deleteLocalContent] Could not read materials.csv:`, error);
+      materials = [];
+    }
+    
+    const contentToDelete = materials.find(m => m.id === contentId);
+    
+    if (!contentToDelete) {
+      console.log(`[deleteLocalContent] Content not found in CSV: ${contentId}`);
+      return { success: false, error: 'Content not found' };
+    }
+    
+    // 1. ローカルのCSVファイルから削除
+    const localMaterialsPath = path.join(DATA_DIR, 'materials', 'materials.csv');
+    if (fs.existsSync(localMaterialsPath)) {
+      const filteredMaterials = materials.filter(m => m.id !== contentId);
+      
+      // writeCSV関数を使用してヘッダーを保持
+      await writeCSV('materials/materials.csv', filteredMaterials);
+      console.log(`[deleteLocalContent] Removed from local CSV: ${contentId}`);
+    }
+    
+    // 2. ローカルのメタデータファイルを削除
+    const localMetadataPath = path.join(DATA_DIR, 'materials', `content_${contentId}`, 'metadata.json');
+    if (fs.existsSync(localMetadataPath)) {
+      fs.unlinkSync(localMetadataPath);
+      console.log(`[deleteLocalContent] Deleted local metadata file: ${localMetadataPath}`);
+    }
+    
+    // 3. ローカルのコンテンツディレクトリ全体を削除
+    const localContentDir = path.join(DATA_DIR, 'materials', `content_${contentId}`);
+    if (fs.existsSync(localContentDir)) {
+      fs.rmSync(localContentDir, { recursive: true, force: true });
+      console.log(`[deleteLocalContent] Deleted local content directory: ${localContentDir}`);
+    }
+    
+    console.log(`[deleteLocalContent] Successfully deleted local content: ${contentId}`);
+    return { success: true };
+  } catch (error) {
+    console.error(`[deleteLocalContent] Error deleting local content:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+// サーバーのみ削除
+export async function deleteServerContent(contentId: string) {
+  try {
+    console.log(`[deleteServerContent] Deleting server content: ${contentId}`);
+    
+    // 直接materials.csvから読み込んで確認
+    let materials: any[] = [];
+    try {
+      materials = await readCSV('materials/materials.csv');
+    } catch (error) {
+      console.log(`[deleteServerContent] Could not read materials.csv:`, error);
+      materials = [];
+    }
+    
+    const contentToDelete = materials.find(m => m.id === contentId);
+    
+    if (!contentToDelete) {
+      console.log(`[deleteServerContent] Content not found in CSV: ${contentId}`);
+      return { success: false, error: 'Content not found' };
+    }
+    
+    // 1. ZドライブのCSVファイルから削除
+    const zMaterialsPath = path.join(Z_DRIVE_PATH, 'shared', 'materials', 'materials.csv');
+    if (fs.existsSync(zMaterialsPath)) {
+      const filteredMaterials = materials.filter(m => m.id !== contentId);
+      
+      // writeCSV関数を使用してヘッダーを保持
+      await writeCSV(zMaterialsPath, filteredMaterials);
+      console.log(`[deleteServerContent] Removed from Z drive CSV: ${contentId}`);
+    }
+    
+    // 2. メタデータファイルを削除（Zドライブ）
+    const zMetadataPath = path.join(Z_DRIVE_PATH, 'shared', 'materials', `content_${contentId}`, 'metadata.json');
+    if (fs.existsSync(zMetadataPath)) {
+      fs.unlinkSync(zMetadataPath);
+      console.log(`[deleteServerContent] Deleted Z drive metadata file: ${zMetadataPath}`);
+    }
+    
+    // 3. コンテンツディレクトリ全体を削除（Zドライブ）
+    const zContentDir = path.join(Z_DRIVE_PATH, 'shared', 'materials', `content_${contentId}`);
+    if (fs.existsSync(zContentDir)) {
+      fs.rmSync(zContentDir, { recursive: true, force: true });
+      console.log(`[deleteServerContent] Deleted Z drive content directory: ${zContentDir}`);
+    }
+    
+    console.log(`[deleteServerContent] Successfully deleted server content: ${contentId}`);
+    return { success: true };
+  } catch (error) {
+    console.error(`[deleteServerContent] Error deleting server content:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
 // コンテンツ詳細取得
 export async function getContentById(contentId: string) {
   try {
