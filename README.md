@@ -180,7 +180,7 @@ nextjs-app-portable/
 
 ## 🚀 クイックスタート
 
-### 1. 起動方法
+### 1. 起動方法（開発）
 ```bash
 # 方法1: ダブルクリック
 start.bat
@@ -195,7 +195,13 @@ cd nextjs-app-portable
 - **自動起動**: ブラウザが自動で開きます
 - **認証**: Windows SIDによる自動ログイン
 
-### 3. 職場環境での設定
+### 3. 再起動（必須ルール）
+必ず以下のスクリプトで再起動してください（ポート自動インクリメント、既存PID強制終了、キャッシュクリアを自動実行）。手動再起動は行わないでください。
+```powershell
+./restart-server.ps1
+```
+
+### 4. 職場環境での設定
 **ネットワークドライブが異なる場合**:
 ```typescript
 // src/config/drive.ts を編集
@@ -206,9 +212,18 @@ const DEFAULT_DRIVE_PATH = 'G:\\マイドライブ\\knowledge_portal';
 
 **詳細は `DRIVE_SETUP.md` を参照**
 
-### 4. 終了方法
+### 5. 終了方法
 - **コマンドプロンプト**: `Ctrl+C`
 - **ウィンドウ**: コマンドプロンプトウィンドウを閉じる
+
+### 6. 本番モードでの確認（キャッシュ検証用）
+開発モードは `vary` ヘッダーの影響でブラウザキャッシュ検証に不向きです。キャッシュ動作は本番モードで確認してください。
+```bash
+npm run build
+npm start
+# 起動後: http://localhost:3000 へアクセス
+```
+注意: 本番検証後に開発へ戻る際は、必ず `restart-server.ps1` を実行してください。
 
 ---
 
@@ -237,6 +252,12 @@ const DEFAULT_DRIVE_PATH = 'G:\\マイドライブ\\knowledge_portal';
 - **永続化**: Z-driveへの確実な保存
 - **UI操作**: 既読/削除/一括操作
 - **デバッグ情報**: 通知状態の表示
+
+［Windows通知の注意点］
+- 初回はブラウザで通知許可が必要です（アドレスバーのベルから許可）
+- 許可状態は `Notification.permission` で確認、未許可時は `Notification.requestPermission()` を実行
+- 本番モードと開発モードで挙動が異なる場合があるため、検証は本番モードで行ってください
+- 実装は `src/contexts/NotificationContext.tsx` を参照
 
 ### 5. リーダーボード
 - **ランキング表示**: 学習成果の可視化
@@ -317,6 +338,13 @@ PUT  /api/notifications            # 通知更新（既読/削除）
 GET  /api/admin/users              # ユーザー管理
 GET  /api/admin/reports            # レポート
 ```
+
+### キャッシュ方針（要点）
+- `/_next/static/chunks/app/(...)/page-*.js` はキャッシュ禁止（無限リロード対策）
+- `/api/notifications` と `/api/auth` はキャッシュ禁止
+- それ以外の多くのAPIは `public, max-age, s-maxage, stale-while-revalidate` を付与（`next.config.js` で集中管理）
+- クライアント/サーバーの個別無効化（`cache: 'no-store'`, `Cache-Control: no-cache`, `?t=Date.now()`）は撤去済み
+- 開発モードの `vary` ヘッダーの影響を避けるため、キャッシュ検証は本番モードで実施
 
 ---
 
@@ -453,9 +481,9 @@ npm run dev -- --port 3001
 ```
 
 ### 2. サーバー起動ルール
-- **ポート+1**: 修正の度にポート番号を+1
-- **キャッシュクリア**: 必ず`.next`フォルダを削除
-- **プロセス管理**: 既存プロセスの適切な終了
+- **必須**: `restart-server.ps1` を使用（ポート+1／PID kill／キャッシュクリアを自動化）
+- **禁止**: 手動でのプロセスkillや任意のポート固定運用
+- **検証**: キャッシュ関連は本番モードで確認
 
 ---
 
@@ -515,7 +543,7 @@ Knowledge Portal ポータブル版は、職場環境の制限下でも利用で
 ---
 
 **作成日**: 2025-10-03  
-**更新日**: 2025-10-04  
+**更新日**: 2025-10-05  
 **バージョン**: v2.1.0  
 **対象**: 開発者・ユーザー・メンテナンス担当者  
 **重要度**: 高（参考資料）
