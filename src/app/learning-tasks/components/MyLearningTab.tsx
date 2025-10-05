@@ -40,15 +40,9 @@ export function MyLearningTab({
       
       // 学習進捗、コンテンツ、カテゴリを並行取得
       const [progressResponse, materialsResponse, categoriesResponse] = await Promise.all([
-        fetch(`/api/learning-progress?userId=${userId}&t=${Date.now()}`, {
-          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-        }),
-        fetch('/api/content', {
-          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-        }),
-        fetch('/api/categories', {
-          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-        })
+        fetch(`/api/learning-progress?userId=${userId}`),
+        fetch('/api/content'),
+        fetch('/api/categories')
       ]);
 
       if (!progressResponse.ok || !materialsResponse.ok || !categoriesResponse.ok) {
@@ -81,8 +75,6 @@ export function MyLearningTab({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
         },
         body: JSON.stringify({
           userId,
@@ -110,8 +102,6 @@ export function MyLearningTab({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
         },
         body: JSON.stringify({
           userId,

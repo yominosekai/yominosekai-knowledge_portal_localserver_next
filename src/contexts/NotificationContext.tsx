@@ -66,7 +66,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         lastFetchError: null,
       }));
 
-      const response = await fetch(`/api/notifications?t=${Date.now()}`, {
+      const response = await fetch(`/api/notifications`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

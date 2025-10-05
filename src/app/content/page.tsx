@@ -61,7 +61,7 @@ export default function Page() {
       });
       
       // nullの要素をフィルタリング（削除されたカード）
-      return updatedMaterials.filter(material => material !== null);
+      return updatedMaterials.filter((material): material is Material => material !== null);
     });
     
     console.log(`削除完了: ${deleteType}削除でUI更新`);

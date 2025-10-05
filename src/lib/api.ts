@@ -81,11 +81,8 @@ class ApiClient {
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
           ...options.headers,
         },
-        cache: 'no-store',
         ...options,
       });
 
@@ -109,7 +106,6 @@ class ApiClient {
   async getProgress(userId: string): Promise<ProgressData> {
     console.log(`[API調査] getProgress 呼び出し開始:`, userId);
     console.log(`[API調査] getProgress 呼び出し時刻:`, new Date().toISOString());
-    console.log(`[API調査] getProgress スタックトレース:`, new Error().stack);
     const result = await this.request<ProgressData>(`/api/progress/${userId}`);
     console.log(`[API調査] getProgress 完了:`, result);
     return result;
@@ -119,11 +115,8 @@ class ApiClient {
   async getContent(forceRefresh = false): Promise<Material[]> {
     console.log(`[API調査] getContent 呼び出し開始 (forceRefresh: ${forceRefresh})`);
     console.log(`[API調査] getContent 呼び出し時刻:`, new Date().toISOString());
-    console.log(`[API調査] getContent スタックトレース:`, new Error().stack);
     try {
-      // キャッシュバスティング付きでリクエスト
-      const url = forceRefresh ? `/api/content?t=${Date.now()}` : '/api/content';
-      const response = await this.request<{ success: boolean; materials: Material[] }>(url);
+      const response = await this.request<{ success: boolean; materials: Material[] }>('/api/content');
       console.log('Content API response:', response);
       
       // レスポンスが配列の場合はそのまま返す

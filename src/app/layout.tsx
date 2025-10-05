@@ -92,19 +92,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                      window.addEventListener('load', function() {
                        console.log('[Layout] Page loaded, checking for cache issues...');
                        
-                       // 5秒後にキャッシュの健全性をチェック
-                       setTimeout(() => {
-                         if (window.performance && window.performance.getEntriesByType) {
-                           const resources = window.performance.getEntriesByType('resource');
-                           const failedResources = resources.filter(r => r.transferSize === 0 && r.name.includes('_next'));
-                           
-                           if (failedResources.length > 0) {
-                             console.log('[Layout] Failed resources detected:', failedResources);
-                             console.log('[Layout] Reloading page to fix resource loading...');
-                             window.location.href = window.location.href;
-                           }
-                         }
-                       }, 5000);
+                       // リロード回数をチェック（無限リロード防止）
+                       const reloadCount = sessionStorage.getItem('reloadCount') || '0';
+                       const currentReloadCount = parseInt(reloadCount) + 1;
+                       sessionStorage.setItem('reloadCount', currentReloadCount.toString());
+                       
+                       // 5回以上リロードしている場合は停止
+                       if (currentReloadCount > 5) {
+                         console.log('[Layout] Too many reloads detected, stopping cache check');
+                         sessionStorage.removeItem('reloadCount');
+                         return;
+                       }
+                       
+                       // リロードカウンターをリセット（無限リロード防止のため）
+                       sessionStorage.removeItem('reloadCount');
                      });
                    }
                  `,
@@ -116,7 +117,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthProvider>
             <NotificationProvider>
               <ClientHeader />
-              <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+              <main className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
                 {children}
               </main>
             </NotificationProvider>

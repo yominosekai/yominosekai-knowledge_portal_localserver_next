@@ -12,12 +12,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       assignments
-    }, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
     });
   } catch (error) {
     console.error('[Assignments GET] Error getting assignments:', error);
@@ -98,12 +92,6 @@ export async function POST(request: NextRequest) {
         success: true,
         assignment: result.assignment,
         message: 'Assignment created successfully'
-      }, {
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
       });
     } else {
       return NextResponse.json(

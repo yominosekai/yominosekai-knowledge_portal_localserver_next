@@ -90,11 +90,6 @@ export async function GET(request: NextRequest) {
       message: "Authentication successful"
     });
     
-    // キャッシュ制御ヘッダーを追加
-    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    response.headers.set('Pragma', 'no-cache');
-    response.headers.set('Expires', '0');
-    
     return response;
   } catch (error) {
     console.error('[Auth GET] Authentication error:', error);
@@ -184,11 +179,6 @@ export async function POST(request: NextRequest) {
       },
       message: "Authentication successful"
     });
-    
-    // キャッシュ制御ヘッダーを追加
-    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    response.headers.set('Pragma', 'no-cache');
-    response.headers.set('Expires', '0');
     
     return response;
   } catch (error) {

@@ -54,9 +54,19 @@ const nextConfig = {
       };
     }
 
-    // キャッシュの最適化（開発時は無効化）
+    // キャッシュの最適化（開発時は完全無効化）
     if (dev) {
       config.cache = false;
+      // 開発時のキャッシュを完全に無効化
+      config.optimization = {
+        ...config.optimization,
+        removeAvailableModules: false,
+        removeEmptyChunks: false,
+        splitChunks: false,
+        // キャッシュ関連の最適化を無効化
+        usedExports: false,
+        sideEffects: false,
+      };
     } else {
       config.cache = {
         type: 'filesystem',
@@ -68,13 +78,6 @@ const nextConfig = {
 
     // HMRの競合を解決するための設定
     if (dev) {
-      config.optimization = {
-        ...config.optimization,
-        removeAvailableModules: false,
-        removeEmptyChunks: false,
-        splitChunks: false,
-      };
-      
       // モジュール解決の最適化（キャッシュ問題を回避）
       config.resolve = {
         ...config.resolve,
@@ -101,11 +104,6 @@ const nextConfig = {
 
        // 実験的機能（キャッシュ最適化）
        experimental: {
-         // キャッシュの無効化設定
-         staleTimes: {
-           dynamic: 0,
-           static: 0,
-         },
          // メモリ使用量の最適化
          memoryBasedWorkersCount: true,
          // バンドル最適化（CSS最適化を無効化してキャッシュ問題を回避）
@@ -141,7 +139,97 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=300, s-maxage=300',
+            value: 'public, max-age=300, s-maxage=300, stale-while-revalidate=60',
+          },
+        ],
+      },
+      {
+        source: '/api/profile',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=300, s-maxage=300, stale-while-revalidate=60',
+          },
+        ],
+      },
+      {
+        source: '/api/progress',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=300, s-maxage=300, stale-while-revalidate=60',
+          },
+        ],
+      },
+      {
+        source: '/api/learning-tasks',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=300, s-maxage=300, stale-while-revalidate=60',
+          },
+        ],
+      },
+      {
+        source: '/api/leaderboard',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=300, s-maxage=300, stale-while-revalidate=60',
+          },
+        ],
+      },
+      {
+        source: '/api/admin',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=300, s-maxage=300, stale-while-revalidate=60',
+          },
+        ],
+      },
+      {
+        source: '/api/content',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=600, s-maxage=600, stale-while-revalidate=120',
+          },
+        ],
+      },
+      {
+        source: '/api/users',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=600, s-maxage=600, stale-while-revalidate=120',
+          },
+        ],
+      },
+      {
+        source: '/api/assignments',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=300, s-maxage=300, stale-while-revalidate=60',
+          },
+        ],
+      },
+      {
+        source: '/api/departments',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=1800, s-maxage=1800, stale-while-revalidate=300',
+          },
+        ],
+      },
+      {
+        source: '/api/categories',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=1800, s-maxage=1800, stale-while-revalidate=300',
           },
         ],
       },
@@ -151,8 +239,44 @@ const nextConfig = {
           {
             key: 'Cache-Control',
             value: process.env.NODE_ENV === 'development' 
-              ? 'no-cache, no-store, must-revalidate' 
+              ? 'no-cache, no-store, must-revalidate, max-age=0' 
               : 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/_next/static/chunks/app/(.*)/page-(.*).js',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate, max-age=0',
+          },
+        ],
+      },
+      {
+        source: '/_next/page/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate, max-age=0',
+          },
+        ],
+      },
+      {
+        source: '/api/notifications',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate, max-age=0',
+          },
+        ],
+      },
+      {
+        source: '/api/auth',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate, max-age=0',
           },
         ],
       },

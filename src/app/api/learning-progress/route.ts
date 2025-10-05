@@ -20,13 +20,7 @@ export async function GET(request: NextRequest) {
     
     console.log(`[Learning Progress GET] Found ${progress.length} learning progress entries`);
     
-    return NextResponse.json(progress, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    });
+    return NextResponse.json(progress);
   } catch (error) {
     console.error('[Learning Progress GET] Error:', error);
     return NextResponse.json(
@@ -95,13 +89,7 @@ export async function POST(request: NextRequest) {
       console.log(`[Learning Progress POST] Created new progress entry`);
     }
     
-    return NextResponse.json({ success: true }, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[Learning Progress POST] Error:', error);
     return NextResponse.json(

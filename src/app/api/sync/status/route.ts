@@ -10,12 +10,6 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const userId = url.searchParams.get('userId');
     
-    // キャッシュ制御ヘッダーを設定（同期モーダル専用）
-    const headers = new Headers();
-    headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    headers.set('Pragma', 'no-cache');
-    headers.set('Expires', '0');
-    
     if (!userId) {
       return NextResponse.json({
         success: false,
@@ -131,7 +125,7 @@ export async function GET(request: Request) {
                      const files = fs.readdirSync(dirPath, { recursive: true });
                      console.log(`[SyncStatus] Directory ${dir} has ${files.length} files: ${files.join(', ')}`);
                      for (const file of files) {
-                       const filePath = path.join(dirPath, file);
+                       const filePath = path.join(dirPath, file as string);
                        if (fs.statSync(filePath).isFile()) {
                          const fileSize = fs.statSync(filePath).size;
                          totalSize += fileSize;
@@ -165,7 +159,7 @@ export async function GET(request: Request) {
         details,
         errors
       }
-    }, { headers });
+    });
   } catch (error) {
     console.error('Sync status error:', error);
     return NextResponse.json(
@@ -188,7 +182,7 @@ export async function GET(request: Request) {
           errors: ['システムエラーが発生しました']
         }
       },
-      { status: 500, headers }
+      { status: 500 }
     );
   }
 }

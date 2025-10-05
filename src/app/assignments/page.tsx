@@ -205,11 +205,10 @@ export default function Page() {
         console.log('✅ [handleUpdateAssignment] Update successful, refreshing assignments...');
         
              // アサインメント一覧を再取得（キャッシュバスティング付き）
-             const assignmentsResponse = await fetch(`/api/assignments?t=${Date.now()}`, {
+             const assignmentsResponse = await fetch(`/api/assignments`, {
                method: 'GET',
                headers: {
-                 'Cache-Control': 'no-cache',
-                 'Pragma': 'no-cache'
+                 'Content-Type': 'application/json',
                }
              });
              console.log('🔄 [handleUpdateAssignment] Fetching assignments, status:', assignmentsResponse.status);
@@ -286,11 +285,10 @@ export default function Page() {
         console.log('✅ [handleDeleteAssignment] Delete successful, refreshing assignments...');
         
              // アサインメント一覧を再取得（キャッシュバスティング付き）
-             const assignmentsResponse = await fetch(`/api/assignments?t=${Date.now()}`, {
+             const assignmentsResponse = await fetch(`/api/assignments`, {
                method: 'GET',
                headers: {
-                 'Cache-Control': 'no-cache',
-                 'Pragma': 'no-cache'
+                 'Content-Type': 'application/json',
                }
              });
              console.log('🗑️ [handleDeleteAssignment] Fetching assignments, status:', assignmentsResponse.status);
@@ -364,11 +362,10 @@ export default function Page() {
 
       if (result.success) {
         // アサインメント一覧を再取得（キャッシュバスティング付き）
-        const assignmentsResponse = await fetch(`/api/assignments?t=${Date.now()}`, {
+        const assignmentsResponse = await fetch(`/api/assignments`, {
           method: 'GET',
           headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
+            'Content-Type': 'application/json',
           }
         });
         const assignmentsData = await assignmentsResponse.json();

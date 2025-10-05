@@ -451,7 +451,7 @@ async function syncActivitiesToLocal(userId: string, activities: any): Promise<v
     const localUserDir = path.join(DATA_DIR, 'users', userId);
     
     if (!fs.existsSync(localUserDir)) {
-      await fs.mkdir(localUserDir, { recursive: true });
+      await fs.promises.mkdir(localUserDir, { recursive: true });
     }
     
     await writeFile(localActivitiesPath, JSON.stringify(activities, null, 2), 'utf-8');

@@ -22,11 +22,6 @@ export async function GET(request: NextRequest) {
     
     const response = NextResponse.json({ success: true, materials: content });
     
-    // キャッシュ制御ヘッダーを追加
-    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    response.headers.set('Pragma', 'no-cache');
-    response.headers.set('Expires', '0');
-    
     return response;
   } catch (error) {
     console.error('Content GET error:', error);

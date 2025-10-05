@@ -10,6 +10,7 @@ interface AuthContextType {
   login: (sid: string) => Promise<void>;
   logout: () => void;
   checkPermission: (permission: string) => boolean;
+  updateUser: (updatedUser: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,20 +22,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // セッション復元のためのuseEffect（初回のみ実行）
   useEffect(() => {
-    console.log(`[認証ループ調査] ===== セッション復元開始 =====`);
-    console.log(`[認証ループ調査] 現在のuser状態:`, user);
-    console.log(`[認証ループ調査] 現在のisLoading状態:`, isLoading);
-    console.log(`[認証ループ調査] hasAttemptedAuthRef.current:`, hasAttemptedAuthRef.current);
+    console.log(`[AuthContext] ===== セッション復元開始 =====`);
+    console.log(`[AuthContext] 現在のuser状態:`, user);
+    console.log(`[AuthContext] 現在のisLoading状態:`, isLoading);
+    console.log(`[AuthContext] hasAttemptedAuthRef.current:`, hasAttemptedAuthRef.current);
     
     // 既に認証済みの場合はスキップ
     if (user) {
-      console.log(`[認証ループ調査] 既に認証済み、セッション復元をスキップ`);
+      console.log(`[AuthContext] 既に認証済み、セッション復元をスキップ`);
       return;
     }
     
     // 既に認証試行済みの場合はスキップ
     if (hasAttemptedAuthRef.current) {
-      console.log(`[認証ループ調査] 認証試行済み、スキップ`);
+      console.log(`[AuthContext] 認証試行済み、スキップ`);
       return;
     }
     
@@ -42,15 +43,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const sessionManager = SessionManager.getInstance();
     const existingSession = sessionManager.getSession();
     
+    console.log(`[AuthContext] 既存セッション:`, existingSession);
+    console.log(`[AuthContext] セッション有効性:`, sessionManager.isSessionValid());
+    
     if (existingSession && sessionManager.isSessionValid()) {
-      console.log(`[認証ループ調査] 既存セッションを復元:`, existingSession.username);
+      console.log(`[AuthContext] 既存セッションを復元:`, existingSession.username);
+      console.log(`[AuthContext] セッション詳細:`, {
+        display_name: existingSession.display_name,
+        email: existingSession.email,
+        avatar: existingSession.avatar
+      });
       hasAttemptedAuthRef.current = true;
       
-      // 状態更新をバッチ処理
-      React.startTransition(() => {
-        setUser(existingSession);
-        setIsLoading(false);
-      });
+      // サーバーから最新のプロフィールデータを取得してセッションを更新
+      const refreshSession = async () => {
+        try {
+          console.log(`[AuthContext] プロフィールデータを再取得中...`);
+          const profileResponse = await fetch(`/api/profile/${existingSession.sid}`);
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            if (profileData.success) {
+              const updatedProfile = profileData.profile;
+              const enrichedUser = {
+                ...existingSession,
+                display_name: updatedProfile.display_name || existingSession.display_name,
+                email: updatedProfile.email || existingSession.email,
+                avatar: updatedProfile.avatar || existingSession.avatar,
+                bio: updatedProfile.bio || '',
+                skills: updatedProfile.skills || [],
+                certifications: updatedProfile.certifications || [],
+                mos: updatedProfile.mos || []
+              };
+              
+              console.log(`[AuthContext] プロフィールデータ更新:`, {
+                display_name: enrichedUser.display_name,
+                avatar: enrichedUser.avatar
+              });
+              
+              // セッションを更新
+              sessionManager.setSession(enrichedUser);
+              
+              // 状態更新をバッチ処理
+              React.startTransition(() => {
+                setUser(enrichedUser);
+                setIsLoading(false);
+              });
+              return;
+            }
+          }
+        } catch (error) {
+          console.error(`[AuthContext] プロフィールデータ取得エラー:`, error);
+        }
+        
+        // エラーの場合は既存セッションを使用
+        React.startTransition(() => {
+          setUser(existingSession);
+          setIsLoading(false);
+        });
+      };
+      
+      refreshSession();
       return;
     }
     
@@ -73,8 +125,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
-              'Cache-Control': 'no-cache',
-              'Pragma': 'no-cache',
             },
             signal: AbortSignal.timeout(15000),
           });
@@ -172,13 +222,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return checkPermission(user, permission);
   };
 
+  const updateUser = (updatedUser: User) => {
+    console.log(`[AuthContext] updateUser called:`, updatedUser);
+    const sessionManager = SessionManager.getInstance();
+    sessionManager.setSession(updatedUser);
+    setUser(updatedUser);
+    console.log(`[AuthContext] User updated successfully`);
+  };
+
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
     isLoading,
     login,
     logout,
-    checkPermission: checkUserPermission
+    checkPermission: checkUserPermission,
+    updateUser
   };
 
   return (

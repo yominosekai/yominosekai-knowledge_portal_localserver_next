@@ -11,6 +11,7 @@ export async function GET(
     console.log(`[Profile API] Getting profile for user: ${userId}`);
     
     const profile = await getUserProfile(userId);
+    console.log(`[Profile API] Raw profile data:`, profile);
     
     if (!profile) {
       console.log(`[Profile API] Profile not found for user: ${userId}`);
@@ -21,14 +22,19 @@ export async function GET(
     }
     
     console.log(`[Profile API] Profile found: ${profile.display_name}`);
+    console.log(`[Profile API] Profile avatar: ${profile.avatar}`);
     
     // 不足しているフィールドにデフォルト値を設定
     const enrichedProfile = {
       ...profile,
       skills: profile.skills || [],
+      certifications: profile.certifications || [],
+      mos: profile.mos || [],
       bio: profile.bio || '',
       avatar: profile.avatar || ''
     };
+    
+    console.log(`[Profile API] Enriched profile:`, enrichedProfile);
     
     return NextResponse.json({
       success: true,

@@ -42,16 +42,14 @@ export function AssignmentTab({
       setLoading(true);
       const [materialsData, assignmentsData, usersData] = await Promise.all([
         apiClient.getContent(),
-        fetch(`/api/assignments?t=${Date.now()}`, {
+        fetch(`/api/assignments`, {
           headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
+            'Content-Type': 'application/json',
           }
         }).then(res => res.json()),
-        fetch(`/api/admin/users?t=${Date.now()}`, {
+        fetch(`/api/admin/users`, {
           headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
+            'Content-Type': 'application/json',
           }
         }).then(res => res.json())
       ]);
@@ -87,8 +85,6 @@ export function AssignmentTab({
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
         },
         body: JSON.stringify(updates)
       });
@@ -114,8 +110,7 @@ export function AssignmentTab({
       const response = await fetch(`/api/assignments/${userId}/${assignmentId}`, {
         method: 'DELETE',
         headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
+          'Content-Type': 'application/json',
         }
       });
 

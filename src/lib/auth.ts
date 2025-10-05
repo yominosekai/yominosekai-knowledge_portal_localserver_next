@@ -10,6 +10,11 @@ export interface User {
   is_active: boolean;
   created_date: string;
   last_login: string;
+  avatar?: string;
+  bio?: string;
+  skills?: string[];
+  certifications?: string[];
+  mos?: string[];
 }
 
 // AuthContext - 削除（Reactフックを含むため）

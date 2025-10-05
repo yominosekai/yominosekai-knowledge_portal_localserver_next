@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { Z_DRIVE_PATH } from '@/config/drive';
+import { KNOWLEDGE_PORTAL_DRIVE_PATH } from '@/config/drive';
 
 export async function GET(
   request: NextRequest,
@@ -13,9 +13,9 @@ export async function GET(
     console.log(`[Content File API] Getting file: ${filename} for content: ${contentId}`);
     
     // Zドライブのsharedフォルダからファイルを取得
-    const zDriveFilePath = join(Z_DRIVE_PATH, 'shared', 'materials', `content_${contentId}`, filename);
+    const zDriveFilePath = join(KNOWLEDGE_PORTAL_DRIVE_PATH, 'shared', 'materials', `content_${contentId}`, filename);
     
-    if (!zDriveFilePath.includes(Z_DRIVE_PATH)) {
+    if (!zDriveFilePath.includes(KNOWLEDGE_PORTAL_DRIVE_PATH)) {
       return NextResponse.json(
         { success: false, error: 'Invalid file path' },
         { status: 400 }
@@ -68,7 +68,7 @@ export async function GET(
           break;
       }
       
-      return new NextResponse(fileBuffer, {
+      return new NextResponse(new Uint8Array(fileBuffer), {
         status: 200,
         headers: {
           'Content-Type': contentType,
@@ -129,7 +129,7 @@ export async function GET(
             break;
         }
         
-        return new NextResponse(localFileBuffer, {
+        return new NextResponse(new Uint8Array(localFileBuffer), {
           status: 200,
           headers: {
             'Content-Type': contentType,

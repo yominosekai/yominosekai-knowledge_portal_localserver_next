@@ -42,15 +42,9 @@ export function RecommendationTab({
       
       // コンテンツ、カテゴリ、学習進捗を並行取得
       const [materialsResponse, categoriesResponse, progressResponse] = await Promise.all([
-        fetch('/api/content', {
-          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-        }),
-        fetch('/api/categories', {
-          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-        }),
-        fetch(`/api/learning-progress?userId=${userId}&t=${Date.now()}`, {
-          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-        })
+        fetch('/api/content'),
+        fetch('/api/categories'),
+        fetch(`/api/learning-progress?userId=${userId}`)
       ]);
 
       if (!materialsResponse.ok || !categoriesResponse.ok || !progressResponse.ok) {
@@ -80,8 +74,6 @@ export function RecommendationTab({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
         },
         body: JSON.stringify({
           userId,
@@ -109,8 +101,6 @@ export function RecommendationTab({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
         },
         body: JSON.stringify({
           userId,

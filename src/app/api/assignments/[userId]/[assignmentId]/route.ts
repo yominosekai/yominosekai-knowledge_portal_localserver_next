@@ -27,12 +27,6 @@ export async function PUT(
         success: true,
         assignment: result.assignment,
         message: 'Assignment updated successfully'
-      }, {
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
       });
     } else {
       return NextResponse.json(
@@ -65,12 +59,6 @@ export async function DELETE(
       return NextResponse.json({
         success: true,
         message: 'Assignment deleted successfully'
-      }, {
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
       });
     } else {
       return NextResponse.json(

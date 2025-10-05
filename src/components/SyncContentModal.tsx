@@ -105,8 +105,7 @@ export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }:
   const loadContentItems = async () => {
     try {
       console.log('[SyncContentModal] コンテンツ一覧を再取得中...');
-      // ブラウザキャッシュを回避するためにタイムスタンプ付きでAPIを呼び出し
-      const response = await fetch(`/api/content?t=${Date.now()}`);
+      const response = await fetch(`/api/content`);
       const data = await response.json();
       
       if (data.success) {
@@ -175,7 +174,6 @@ export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }:
       
       const syncResponse = await smartSync({
         totalContent: totalContent,
-        userId: user?.sid,
         onProgress: (progress: number, message: string) => {
           setSyncProgress(30 + (progress * 0.6)); // 30-90%の範囲
           setSyncMessage(message);
@@ -270,7 +268,6 @@ export function SyncContentModal({ isOpen, onClose, onSuccess, onSyncComplete }:
 
     try {
       const syncResponse = await forceSync({
-        userId: user?.sid,
         onProgress: (progress: number, message: string) => {
           setSyncProgress(progress);
           setSyncMessage(message);

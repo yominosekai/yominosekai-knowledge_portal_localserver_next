@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface LearningFile {
   id: string;
   name: string;
   safe_name?: string;
-  type: 'pdf' | 'pptx' | 'docx' | 'txt' | 'md' | 'video' | 'image';
+  type: 'pdf' | 'pptx' | 'docx' | 'txt' | 'md' | 'video' | 'image' | 'other';
   url: string;
   order: number;
   completed: boolean;
@@ -221,6 +222,9 @@ function ContentViewer({ file }: ContentViewerProps) {
   const [fileContent, setFileContent] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(100);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const { resolvedTheme } = useTheme();
 
   useEffect(() => {
     const fetchFileContent = async () => {
@@ -254,16 +258,80 @@ function ContentViewer({ file }: ContentViewerProps) {
     fetchFileContent();
   }, [file]);
 
+  const handleZoomIn = () => {
+    setZoomLevel(prev => Math.min(prev + 25, 300));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel(prev => Math.max(prev - 25, 50));
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(100);
+  };
+
+  const handleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
   const renderContent = () => {
     switch (file.type) {
       case 'pdf':
         return (
-          <div className="h-full bg-white">
-            <iframe
-              src={file.url}
-              className="w-full h-full border-0"
-              title={file.name}
-            />
+          <div className={`h-full ${resolvedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'} flex flex-col ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
+            {/* コントロールバー */}
+            <div className={`flex items-center justify-between p-4 ${resolvedTheme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'} border-b`}>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleZoomOut}
+                  className={`p-2 ${resolvedTheme === 'dark' ? 'hover:bg-gray-700 text-white' : 'hover:bg-gray-200 text-gray-700'} rounded transition-colors`}
+                  title="縮小"
+                >
+                  <span className="text-lg">−</span>
+                </button>
+                <span className={`text-sm font-medium min-w-[60px] text-center ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-700'}`}>
+                  {zoomLevel}%
+                </span>
+                <button
+                  onClick={handleZoomIn}
+                  className={`p-2 ${resolvedTheme === 'dark' ? 'hover:bg-gray-700 text-white' : 'hover:bg-gray-200 text-gray-700'} rounded transition-colors`}
+                  title="拡大"
+                >
+                  <span className="text-lg">+</span>
+                </button>
+                <button
+                  onClick={handleResetZoom}
+                  className={`px-3 py-1 text-xs ${resolvedTheme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'} rounded transition-colors`}
+                  title="リセット"
+                >
+                  リセット
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleFullscreen}
+                  className={`p-2 ${resolvedTheme === 'dark' ? 'hover:bg-gray-700 text-white' : 'hover:bg-gray-200 text-gray-700'} rounded transition-colors`}
+                  title={isFullscreen ? "フルスクリーン終了" : "フルスクリーン"}
+                >
+                  <span className="text-lg">{isFullscreen ? '⤓' : '⤢'}</span>
+                </button>
+              </div>
+            </div>
+            
+            {/* PDF表示エリア */}
+            <div className="flex-1 overflow-auto">
+              <iframe
+                src={file.url}
+                className="w-full h-full border-0"
+                title={file.name}
+                style={{ 
+                  transform: `scale(${zoomLevel / 100})`,
+                  transformOrigin: 'top left',
+                  width: `${100 / (zoomLevel / 100)}%`,
+                  height: `${100 / (zoomLevel / 100)}%`
+                }}
+              />
+            </div>
           </div>
         );
       case 'video':
@@ -281,21 +349,69 @@ function ContentViewer({ file }: ContentViewerProps) {
         );
       case 'image':
         return (
-          <div className="h-full bg-gray-100 flex items-center justify-center p-4">
-            <img
-              src={file.url}
-              alt={file.name}
-              className="max-w-full max-h-full object-contain"
-            />
+          <div className={`h-full ${resolvedTheme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'} flex flex-col ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
+            {/* コントロールバー */}
+            <div className={`flex items-center justify-between p-4 ${resolvedTheme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-200 border-gray-200'} border-b`}>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleZoomOut}
+                  className={`p-2 ${resolvedTheme === 'dark' ? 'hover:bg-gray-700 text-white' : 'hover:bg-gray-300 text-gray-700'} rounded transition-colors`}
+                  title="縮小"
+                >
+                  <span className="text-lg">−</span>
+                </button>
+                <span className={`text-sm font-medium min-w-[60px] text-center ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-700'}`}>
+                  {zoomLevel}%
+                </span>
+                <button
+                  onClick={handleZoomIn}
+                  className={`p-2 ${resolvedTheme === 'dark' ? 'hover:bg-gray-700 text-white' : 'hover:bg-gray-300 text-gray-700'} rounded transition-colors`}
+                  title="拡大"
+                >
+                  <span className="text-lg">+</span>
+                </button>
+                <button
+                  onClick={handleResetZoom}
+                  className={`px-3 py-1 text-xs ${resolvedTheme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-300 hover:bg-gray-400 text-gray-700'} rounded transition-colors`}
+                  title="リセット"
+                >
+                  リセット
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleFullscreen}
+                  className={`p-2 ${resolvedTheme === 'dark' ? 'hover:bg-gray-700 text-white' : 'hover:bg-gray-300 text-gray-700'} rounded transition-colors`}
+                  title={isFullscreen ? "フルスクリーン終了" : "フルスクリーン"}
+                >
+                  <span className="text-lg">{isFullscreen ? '⤓' : '⤢'}</span>
+                </button>
+              </div>
+            </div>
+            
+            {/* 画像表示エリア */}
+            <div className="flex-1 overflow-auto flex items-center justify-center p-4">
+              <img
+                src={file.url}
+                alt={file.name}
+                className="object-contain"
+                style={{ 
+                  transform: `scale(${zoomLevel / 100})`,
+                  transformOrigin: 'center',
+                  maxWidth: '100%',
+                  maxHeight: '100%'
+                }}
+              />
+            </div>
           </div>
         );
       case 'txt':
         if (loading) {
           return (
-            <div className="h-full bg-white flex items-center justify-center">
+            <div className={`h-full ${resolvedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'} flex items-center justify-center`}>
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mx-auto mb-4"></div>
-                <p className="text-gray-600">ファイルを読み込み中...</p>
+                <p className={resolvedTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>ファイルを読み込み中...</p>
               </div>
             </div>
           );
@@ -303,7 +419,7 @@ function ContentViewer({ file }: ContentViewerProps) {
         
         if (error) {
           return (
-            <div className="h-full bg-white flex items-center justify-center">
+            <div className={`h-full ${resolvedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'} flex items-center justify-center`}>
               <div className="text-center">
                 <div className="text-6xl mb-4">❌</div>
                 <p className="text-red-600">{error}</p>
@@ -313,19 +429,68 @@ function ContentViewer({ file }: ContentViewerProps) {
         }
         
         return (
-          <div className="h-full bg-white overflow-auto p-6">
-            <pre className="whitespace-pre-wrap font-mono text-sm text-gray-800">
-              {fileContent}
-            </pre>
+          <div className={`h-full ${resolvedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'} flex flex-col ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
+            {/* コントロールバー */}
+            <div className={`flex items-center justify-between p-4 ${resolvedTheme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'} border-b`}>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleZoomOut}
+                  className={`p-2 ${resolvedTheme === 'dark' ? 'hover:bg-gray-700 text-white' : 'hover:bg-gray-200 text-gray-700'} rounded transition-colors`}
+                  title="縮小"
+                >
+                  <span className="text-lg">−</span>
+                </button>
+                <span className={`text-sm font-medium min-w-[60px] text-center ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-700'}`}>
+                  {zoomLevel}%
+                </span>
+                <button
+                  onClick={handleZoomIn}
+                  className={`p-2 ${resolvedTheme === 'dark' ? 'hover:bg-gray-700 text-white' : 'hover:bg-gray-200 text-gray-700'} rounded transition-colors`}
+                  title="拡大"
+                >
+                  <span className="text-lg">+</span>
+                </button>
+                <button
+                  onClick={handleResetZoom}
+                  className={`px-3 py-1 text-xs ${resolvedTheme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'} rounded transition-colors`}
+                  title="リセット"
+                >
+                  リセット
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleFullscreen}
+                  className={`p-2 ${resolvedTheme === 'dark' ? 'hover:bg-gray-700 text-white' : 'hover:bg-gray-200 text-gray-700'} rounded transition-colors`}
+                  title={isFullscreen ? "フルスクリーン終了" : "フルスクリーン"}
+                >
+                  <span className="text-lg">{isFullscreen ? '⤓' : '⤢'}</span>
+                </button>
+              </div>
+            </div>
+            
+            {/* コンテンツ表示エリア */}
+            <div className="flex-1 overflow-auto p-6">
+              <div 
+                className={`whitespace-pre-wrap font-mono text-sm ${resolvedTheme === 'dark' ? 'text-gray-200' : 'text-gray-800'}`}
+                style={{ 
+                  transform: `scale(${zoomLevel / 100})`,
+                  transformOrigin: 'top left',
+                  width: `${100 / (zoomLevel / 100)}%`
+                }}
+              >
+                {fileContent}
+              </div>
+            </div>
           </div>
         );
       case 'md':
         if (loading) {
           return (
-            <div className="h-full bg-white flex items-center justify-center">
+            <div className={`h-full ${resolvedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'} flex items-center justify-center`}>
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mx-auto mb-4"></div>
-                <p className="text-gray-600">Markdownを読み込み中...</p>
+                <p className={resolvedTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Markdownを読み込み中...</p>
               </div>
             </div>
           );
@@ -333,7 +498,7 @@ function ContentViewer({ file }: ContentViewerProps) {
         
         if (error) {
           return (
-            <div className="h-full bg-white flex items-center justify-center">
+            <div className={`h-full ${resolvedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'} flex items-center justify-center`}>
               <div className="text-center">
                 <div className="text-6xl mb-4">❌</div>
                 <p className="text-red-600">{error}</p>
@@ -343,20 +508,69 @@ function ContentViewer({ file }: ContentViewerProps) {
         }
         
         return (
-          <div className="h-full bg-white overflow-auto p-6">
-            <div className="prose prose-lg max-w-none">
-              <ReactMarkdown>{fileContent}</ReactMarkdown>
+          <div className={`h-full ${resolvedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'} flex flex-col ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
+            {/* コントロールバー */}
+            <div className={`flex items-center justify-between p-4 ${resolvedTheme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'} border-b`}>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleZoomOut}
+                  className={`p-2 ${resolvedTheme === 'dark' ? 'hover:bg-gray-700 text-white' : 'hover:bg-gray-200 text-gray-700'} rounded transition-colors`}
+                  title="縮小"
+                >
+                  <span className="text-lg">−</span>
+                </button>
+                <span className={`text-sm font-medium min-w-[60px] text-center ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-700'}`}>
+                  {zoomLevel}%
+                </span>
+                <button
+                  onClick={handleZoomIn}
+                  className={`p-2 ${resolvedTheme === 'dark' ? 'hover:bg-gray-700 text-white' : 'hover:bg-gray-200 text-gray-700'} rounded transition-colors`}
+                  title="拡大"
+                >
+                  <span className="text-lg">+</span>
+                </button>
+                <button
+                  onClick={handleResetZoom}
+                  className={`px-3 py-1 text-xs ${resolvedTheme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'} rounded transition-colors`}
+                  title="リセット"
+                >
+                  リセット
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleFullscreen}
+                  className={`p-2 ${resolvedTheme === 'dark' ? 'hover:bg-gray-700 text-white' : 'hover:bg-gray-200 text-gray-700'} rounded transition-colors`}
+                  title={isFullscreen ? "フルスクリーン終了" : "フルスクリーン"}
+                >
+                  <span className="text-lg">{isFullscreen ? '⤓' : '⤢'}</span>
+                </button>
+              </div>
+            </div>
+            
+            {/* コンテンツ表示エリア */}
+            <div className="flex-1 overflow-auto p-6">
+              <div 
+                className={`prose prose-lg max-w-none ${resolvedTheme === 'dark' ? 'prose-invert' : ''}`}
+                style={{ 
+                  transform: `scale(${zoomLevel / 100})`,
+                  transformOrigin: 'top left',
+                  width: `${100 / (zoomLevel / 100)}%`
+                }}
+              >
+                <ReactMarkdown>{fileContent}</ReactMarkdown>
+              </div>
             </div>
           </div>
         );
       case 'pptx':
       case 'docx':
         return (
-          <div className="h-full bg-white flex items-center justify-center">
+          <div className={`h-full ${resolvedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'} flex items-center justify-center`}>
             <div className="text-center p-8">
               <div className="text-6xl mb-4">📊</div>
-              <h3 className="text-xl font-semibold mb-2">{file.name}</h3>
-              <p className="text-gray-600 mb-4">Officeファイルの表示</p>
+              <h3 className={`text-xl font-semibold mb-2 ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{file.name}</h3>
+              <p className={resolvedTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'} mb-4>Officeファイルの表示</p>
               <a
                 href={file.url}
                 target="_blank"
@@ -370,11 +584,11 @@ function ContentViewer({ file }: ContentViewerProps) {
         );
       default:
         return (
-          <div className="h-full bg-white flex items-center justify-center">
+          <div className={`h-full ${resolvedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'} flex items-center justify-center`}>
             <div className="text-center p-8">
               <div className="text-6xl mb-4">📄</div>
-              <h3 className="text-xl font-semibold mb-2">{file.name}</h3>
-              <p className="text-gray-600 mb-4">ファイルの表示</p>
+              <h3 className={`text-xl font-semibold mb-2 ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{file.name}</h3>
+              <p className={resolvedTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'} mb-4>ファイルの表示</p>
               <a
                 href={file.url}
                 target="_blank"

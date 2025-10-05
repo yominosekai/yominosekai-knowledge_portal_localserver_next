@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { ImageCropModal } from './ImageCropModal';
+import { AvatarCropEditor } from './AvatarCropEditor';
 
 interface AvatarUploadProps {
   currentAvatar?: string;
@@ -70,27 +70,45 @@ export function AvatarUpload({
     }
   };
 
-  const handleCropComplete = (croppedImageUrl: string) => {
-    setPreviewUrl(croppedImageUrl);
-    onAvatarChange(croppedImageUrl);
-    setShowCropModal(false);
+  const handleCropComplete = async (croppedImageBlob: Blob) => {
+    console.log(`[AvatarUpload] クロップ完了、Base64変換開始`);
+    // BlobをBase64に変換して永続化
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64String = reader.result as string;
+      console.log(`[AvatarUpload] アバターをBase64に変換: ${base64String.substring(0, 50)}...`);
+      setPreviewUrl(base64String);
+      onAvatarChange(base64String);
+      setShowCropModal(false);
+      console.log(`[AvatarUpload] アバター設定完了`);
+    };
+    reader.readAsDataURL(croppedImageBlob);
   };
 
   const handleRemoveAvatar = () => {
+    console.log(`[AvatarUpload] アバター削除開始`);
     setPreviewUrl(null);
     onAvatarChange('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    console.log(`[AvatarUpload] アバター削除完了`);
   };
 
   const displayAvatar = previewUrl || currentAvatar;
+  
+  console.log(`[AvatarUpload] Props:`, {
+    currentAvatar,
+    currentInitials,
+    previewUrl,
+    displayAvatar
+  });
 
   return (
     <div className={`space-y-4 ${className}`}>
       {/* 現在のアバター表示 */}
       <div className="flex items-center gap-4">
-        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-4xl font-bold text-white overflow-hidden">
+        <div className="w-24 h-24 rounded-full bg-gray-600 flex items-center justify-center text-4xl font-bold text-white overflow-hidden ring-2 ring-white/30 shadow-lg">
           {displayAvatar ? (
             <img 
               src={displayAvatar} 
@@ -98,7 +116,7 @@ export function AvatarUpload({
               className="w-full h-full object-cover"
             />
           ) : (
-            currentInitials
+            currentInitials || 'U'
           )}
         </div>
         
@@ -152,13 +170,14 @@ export function AvatarUpload({
         className="hidden"
       />
 
-      {/* クロップモーダル */}
-      <ImageCropModal
-        isOpen={showCropModal}
-        imageSrc={cropImageSrc}
-        onCrop={handleCropComplete}
-        onClose={() => setShowCropModal(false)}
-      />
+      {/* クロップエディタ */}
+      {showCropModal && (
+        <AvatarCropEditor
+          imageSrc={cropImageSrc}
+          onCropComplete={handleCropComplete}
+          onCancel={() => setShowCropModal(false)}
+        />
+      )}
     </div>
   );
 }

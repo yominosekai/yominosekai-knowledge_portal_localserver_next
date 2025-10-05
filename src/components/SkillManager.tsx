@@ -109,7 +109,7 @@ export function SkillManager({ userId, className = '' }: SkillManagerProps) {
             id: Date.now().toString(),
             name: newSkill.name,
             level: newSkill.level,
-            category: newSkill.category,
+            category: newSkill.category || 'General',
             acquired_date: new Date().toISOString().split('T')[0]
           };
 
@@ -121,12 +121,17 @@ export function SkillManager({ userId, className = '' }: SkillManagerProps) {
 
           setNewSkill({ name: '', level: 1, category: '', type: 'skill' });
           setShowAddForm(false);
+          
+          // 成功メッセージを表示（オプション）
+          console.log('スキルが正常に追加されました');
         }
       } else {
         console.error('スキル追加APIエラー:', response.status);
+        alert('スキルの追加に失敗しました。もう一度お試しください。');
       }
     } catch (error) {
       console.error('スキル追加エラー:', error);
+      alert('スキルの追加中にエラーが発生しました。');
     }
   };
 
@@ -139,11 +144,12 @@ export function SkillManager({ userId, className = '' }: SkillManagerProps) {
       
       if (!skillToDelete) return;
 
+      // 確認ダイアログを表示
+      if (!confirm(`「${skillToDelete}」を削除しますか？`)) {
+        return;
+      }
+
       // プロフィールAPIからスキルを削除
-      const updatedSkills = type === 'skill'
-        ? skills.filter(skill => skill.id !== id).map(s => s.name)
-        : certifications.filter(cert => cert.id !== id).map(c => c.name);
-      
       const allSkills = [...skills.map(s => s.name), ...certifications.map(c => c.name)]
         .filter(skill => skill !== skillToDelete);
 
@@ -165,12 +171,15 @@ export function SkillManager({ userId, className = '' }: SkillManagerProps) {
           } else {
             setCertifications(prev => prev.filter(cert => cert.id !== id));
           }
+          console.log('スキルが正常に削除されました');
         }
       } else {
         console.error('スキル削除APIエラー:', response.status);
+        alert('スキルの削除に失敗しました。もう一度お試しください。');
       }
     } catch (error) {
       console.error('スキル削除エラー:', error);
+      alert('スキルの削除中にエラーが発生しました。');
     }
   };
 
@@ -200,14 +209,14 @@ export function SkillManager({ userId, className = '' }: SkillManagerProps) {
   return (
     <div className={`skill-manager ${className}`}>
       {/* スキル一覧 */}
-      <div className="card mb-6">
+      <div className="rounded-lg bg-white/5 p-6 ring-1 ring-white/10 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h4 className="text-lg font-semibold text-white">保有スキル</h4>
           <button
             onClick={() => setShowAddForm(true)}
-            className="btn btn-primary btn-sm"
+            className="px-4 py-2 rounded bg-brand text-white hover:bg-brand-dark transition-colors text-sm"
           >
-            スキル追加
+            + スキル追加
           </button>
         </div>
         
@@ -244,14 +253,14 @@ export function SkillManager({ userId, className = '' }: SkillManagerProps) {
       </div>
 
       {/* 資格・認定一覧 */}
-      <div className="card mb-6">
+      <div className="rounded-lg bg-white/5 p-6 ring-1 ring-white/10 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h4 className="text-lg font-semibold text-white">資格・認定</h4>
           <button
             onClick={() => setShowAddForm(true)}
-            className="btn btn-primary btn-sm"
+            className="px-4 py-2 rounded bg-brand text-white hover:bg-brand-dark transition-colors text-sm"
           >
-            資格追加
+            + 資格追加
           </button>
         </div>
         
@@ -353,14 +362,14 @@ export function SkillManager({ userId, className = '' }: SkillManagerProps) {
             <div className="flex gap-2 mt-6">
               <button
                 onClick={handleAddSkill}
-                className="btn btn-success flex-1"
+                className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 transition-colors flex-1 disabled:bg-gray-600 disabled:cursor-not-allowed"
                 disabled={!newSkill.name.trim()}
               >
                 追加
               </button>
               <button
                 onClick={() => setShowAddForm(false)}
-                className="btn btn-secondary flex-1"
+                className="px-4 py-2 rounded bg-gray-600 text-white hover:bg-gray-700 transition-colors flex-1"
               >
                 キャンセル
               </button>

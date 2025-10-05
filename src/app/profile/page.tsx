@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiClient, ProgressData, Material } from '../../lib/api';
 import { AvatarUpload } from '../../components/AvatarUpload';
-import { SkillManager } from '../../components/SkillManager';
 
 interface UserProfile {
   sid: string;
@@ -17,6 +16,8 @@ interface UserProfile {
   last_login: string;
   is_active: string;
   skills: string[];
+  certifications: string[];
+  mos: string[];
   bio?: string;
   avatar?: string;
 }
@@ -31,26 +32,49 @@ interface Activity {
 }
 
 export default function Page() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, updateUser } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [progressData, setProgressData] = useState<ProgressData | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('skills');
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     display_name: '',
     email: '',
     bio: '',
-    skills: [] as string[]
+    skills: [] as string[],
+    certifications: [] as string[],
+    mos: [] as string[]
   });
   const [avatarUrl, setAvatarUrl] = useState<string>('');
 
+  // アバターURL変更のデバッグログ
+  const handleAvatarChange = (newAvatarUrl: string) => {
+    console.log(`[ProfilePage] アバターURL変更:`, newAvatarUrl ? `${newAvatarUrl.substring(0, 50)}...` : '空');
+    setAvatarUrl(newAvatarUrl);
+  };
+
+  // デバッグログ用のuseEffect
+  useEffect(() => {
+    if (profile) {
+      console.log(`[ProfilePage] AvatarUpload props:`, {
+        currentAvatar: avatarUrl,
+        currentInitials: profile.display_name ? profile.display_name.charAt(0) : 'U',
+        display_name: profile.display_name
+      });
+    }
+  }, [profile, avatarUrl]);
+
   useEffect(() => {
     const fetchData = async () => {
+      console.log(`[ProfilePage] ===== データ取得開始 =====`);
+      console.log(`[ProfilePage] authLoading:`, authLoading);
+      console.log(`[ProfilePage] user:`, user);
+      
       // 認証が完了するまで待機
       if (authLoading || !user) {
+        console.log(`[ProfilePage] 認証待機中またはユーザーなし`);
         return;
       }
 
@@ -58,24 +82,35 @@ export default function Page() {
         setLoading(true);
         
         // プロフィールデータ取得
+        console.log(`[ProfilePage] プロフィールAPI呼び出し: /api/profile/${user.sid}`);
         const profileResponse = await fetch(`/api/profile/${user.sid}`);
         if (profileResponse.ok) {
           const profileData = await profileResponse.json();
+          console.log(`[ProfilePage] プロフィールAPI応答:`, profileData);
           if (profileData.success) {
             const userProfile = profileData.profile;
+            console.log(`[ProfilePage] 取得したプロフィール:`, userProfile);
             // 不足しているフィールドにデフォルト値を設定
             const enrichedProfile = {
               ...userProfile,
               skills: userProfile.skills || [],
+              certifications: userProfile.certifications || [],
+              mos: userProfile.mos || [],
               bio: userProfile.bio || '',
               avatar: userProfile.avatar || ''
             };
+            console.log(`[ProfilePage] 設定するプロフィール:`, enrichedProfile);
+            console.log(`[ProfilePage] アバターURL:`, enrichedProfile.avatar);
+            console.log(`[ProfilePage] アバタータイプ:`, enrichedProfile.avatar?.startsWith('data:') ? 'Base64' : 'URL');
             setProfile(enrichedProfile);
+            setAvatarUrl(enrichedProfile.avatar);
             setEditForm({
               display_name: enrichedProfile.display_name || '',
               email: enrichedProfile.email || '',
               bio: enrichedProfile.bio || '',
-              skills: enrichedProfile.skills || []
+              skills: enrichedProfile.skills || [],
+              certifications: enrichedProfile.certifications || [],
+              mos: enrichedProfile.mos || []
             });
           }
         } else {
@@ -132,6 +167,8 @@ export default function Page() {
     if (!profile) return;
     
     try {
+      console.log(`[ProfilePage] プロフィール保存開始`);
+      console.log(`[ProfilePage] 保存するアバターURL:`, avatarUrl);
       const response = await fetch('/api/profile/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -140,7 +177,10 @@ export default function Page() {
           display_name: editForm.display_name,
           email: editForm.email,
           bio: editForm.bio,
-          skills: editForm.skills
+          skills: editForm.skills,
+          certifications: editForm.certifications,
+          mos: editForm.mos,
+          avatar: avatarUrl
         })
       });
       
@@ -152,7 +192,27 @@ export default function Page() {
           if (profileResponse.ok) {
             const profileData = await profileResponse.json();
             if (profileData.success) {
-              setProfile(profileData.profile);
+              const updatedProfile = profileData.profile;
+              // 不足しているフィールドにデフォルト値を設定
+              const enrichedProfile = {
+                ...updatedProfile,
+                skills: updatedProfile.skills || [],
+                certifications: updatedProfile.certifications || [],
+                bio: updatedProfile.bio || '',
+                avatar: updatedProfile.avatar || ''
+              };
+              setProfile(enrichedProfile);
+              // AuthContextも更新（プロフィールAPIから取得した最新データを使用）
+              updateUser({
+                ...user!,
+                display_name: enrichedProfile.display_name,
+                email: enrichedProfile.email,
+                avatar: enrichedProfile.avatar,
+                bio: enrichedProfile.bio,
+                skills: enrichedProfile.skills,
+                certifications: enrichedProfile.certifications,
+                mos: enrichedProfile.mos
+              });
             }
           }
           setIsEditing(false);
@@ -163,21 +223,6 @@ export default function Page() {
     }
   };
 
-  const addSkill = (skill: string) => {
-    if (skill && !editForm.skills.includes(skill)) {
-      setEditForm(prev => ({
-        ...prev,
-        skills: [...prev.skills, skill]
-      }));
-    }
-  };
-
-  const removeSkill = (skill: string) => {
-    setEditForm(prev => ({
-      ...prev,
-      skills: prev.skills.filter(s => s !== skill)
-    }));
-  };
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -197,6 +242,54 @@ export default function Page() {
       case 'commented': return 'コメント';
       default: return 'アクティビティ';
     }
+  };
+
+  const addSkill = (skill: string) => {
+    if (skill && !editForm.skills.includes(skill)) {
+      setEditForm(prev => ({
+        ...prev,
+        skills: [...prev.skills, skill]
+      }));
+    }
+  };
+
+  const removeSkill = (skill: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      skills: prev.skills.filter(s => s !== skill)
+    }));
+  };
+
+  const addCertification = (certification: string) => {
+    if (certification && !editForm.certifications.includes(certification)) {
+      setEditForm(prev => ({
+        ...prev,
+        certifications: [...prev.certifications, certification]
+      }));
+    }
+  };
+
+  const removeCertification = (certification: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      certifications: prev.certifications.filter(c => c !== certification)
+    }));
+  };
+
+  const addMos = (mos: string) => {
+    if (mos && !editForm.mos.includes(mos)) {
+      setEditForm(prev => ({
+        ...prev,
+        mos: [...prev.mos, mos]
+      }));
+    }
+  };
+
+  const removeMos = (mos: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      mos: prev.mos.filter(m => m !== mos)
+    }));
   };
 
   if (authLoading || loading) {
@@ -232,104 +325,118 @@ export default function Page() {
 
   return (
     <div className="space-y-6">
-      {/* プロフィールヘッダー */}
-      <div className="rounded-lg bg-white/5 p-6 ring-1 ring-white/10">
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-brand flex items-center justify-center text-2xl font-bold text-white overflow-hidden">
-              {avatarUrl ? (
-                <img 
-                  src={avatarUrl} 
-                  alt="Avatar" 
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                profile.display_name.charAt(0)
-              )}
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">{profile.display_name}</h1>
-              <p className="text-white/70">@{profile.username}</p>
-              <p className="text-white/50 text-sm">{profile.department} • {profile.role}</p>
+          {/* プロフィールヘッダー */}
+          <div className="mb-8 rounded-lg bg-white/5 backdrop-blur-sm p-6 ring-1 ring-white/10 shadow-2xl">
+            <div className="flex items-center space-x-6">
+              {/* アバター */}
+              <div className="h-20 w-20 rounded-full bg-gray-600 flex items-center justify-center text-2xl font-bold text-white overflow-hidden ring-2 ring-white/30 shadow-lg">
+                {avatarUrl ? (
+                  <img 
+                    src={avatarUrl} 
+                    alt="Avatar" 
+                    className="w-full h-full object-cover rounded-full"
+                    onError={(e) => {
+                      console.log(`[ProfilePage] アバター読み込みエラー:`, avatarUrl);
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  profile.display_name ? profile.display_name.charAt(0) : 'U'
+                )}
+              </div>
+              
+              {/* ユーザー情報 */}
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold text-white">{profile.display_name}</h1>
+                <p className="text-white/80">@{profile.username}</p>
+                
+                {/* ロールと部署 */}
+                <div className="mt-2 flex space-x-4 text-sm text-white/60">
+                  <span>{profile.role}</span>
+                  <span>•</span>
+                  <span>{profile.department}</span>
+                </div>
+              </div>
+              
+              {/* 編集ボタン */}
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                {isEditing ? 'キャンセル' : '編集'}
+              </button>
             </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className="px-4 py-2 rounded bg-brand text-white hover:bg-brand-dark transition-colors"
-            >
-              {isEditing ? 'キャンセル' : '編集'}
-            </button>
-          </div>
-        </div>
-
-        {/* 編集フォーム */}
-        {isEditing && (
-          <div className="mb-6 p-4 rounded-lg bg-black/20 ring-1 ring-white/10">
-            <h3 className="text-lg font-semibold mb-4">プロフィール編集</h3>
+          {/* 編集フォーム */}
+          {isEditing && (
+            <div className="mb-8 rounded-lg bg-white/5 backdrop-blur-sm p-6 ring-1 ring-white/10 shadow-2xl">
+              <h3 className="text-xl font-bold text-white mb-6">プロフィール編集</h3>
             
             {/* アバターアップロード */}
             <div className="mb-6">
-              <h4 className="text-md font-semibold mb-3">プロフィール画像</h4>
+              <h4 className="text-sm font-medium text-white/90 mb-3">プロフィール画像</h4>
               <AvatarUpload
                 currentAvatar={avatarUrl}
-                currentInitials={profile.display_name.charAt(0)}
-                onAvatarChange={setAvatarUrl}
+                currentInitials={profile.display_name ? profile.display_name.charAt(0) : 'U'}
+                onAvatarChange={handleAvatarChange}
                 className="max-w-md"
               />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm text-white/70 mb-1">表示名</label>
+                <label className="block text-sm font-medium text-white/90 mb-2">表示名</label>
                 <input
                   type="text"
-                  className="w-full rounded bg-black/20 px-3 py-2 ring-1 ring-white/10 text-white"
+                  className="w-full rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 text-white placeholder-white/50 focus:ring-brand focus:outline-none transition-all duration-200"
                   value={editForm.display_name}
                   onChange={(e) => setEditForm({...editForm, display_name: e.target.value})}
+                  placeholder="表示名を入力"
                 />
               </div>
               <div>
-                <label className="block text-sm text-white/70 mb-1">メール</label>
+                <label className="block text-sm font-medium text-white/90 mb-2">メールアドレス</label>
                 <input
                   type="email"
-                  className="w-full rounded bg-black/20 px-3 py-2 ring-1 ring-white/10 text-white"
+                  className="w-full rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 text-white placeholder-white/50 focus:ring-brand focus:outline-none transition-all duration-200"
                   value={editForm.email}
                   onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                  placeholder="メールアドレスを入力"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm text-white/70 mb-1">自己紹介</label>
+                <label className="block text-sm font-medium text-white/90 mb-2">自己紹介</label>
                 <textarea
-                  className="w-full rounded bg-black/20 px-3 py-2 ring-1 ring-white/10 text-white"
-                  rows={3}
+                  className="w-full rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 text-white placeholder-white/50 focus:ring-brand focus:outline-none transition-all duration-200 resize-none"
+                  rows={4}
                   value={editForm.bio}
                   onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
+                  placeholder="自己紹介を入力してください"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm text-white/70 mb-1">スキル</label>
-                <div className="flex flex-wrap gap-2 mb-2">
+                <label className="block text-sm font-medium text-white/90 mb-3">スキル</label>
+                <div className="flex flex-wrap gap-2 mb-3">
                   {editForm.skills.map((skill, index) => (
                     <span
                       key={index}
-                      className="px-3 py-1 rounded bg-brand/20 text-brand text-sm flex items-center gap-2"
+                      className="px-4 py-2 rounded-full bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 text-sm font-medium flex items-center gap-2 ring-1 ring-blue-500/30"
                     >
                       {skill}
                       <button
                         onClick={() => removeSkill(skill)}
-                        className="text-brand hover:text-red-400"
+                        className="text-blue-300 hover:text-red-400 transition-colors"
                       >
                         ×
                       </button>
                     </span>
                   ))}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <input
                     type="text"
-                    placeholder="スキルを入力"
-                    className="flex-1 rounded bg-black/20 px-3 py-2 ring-1 ring-white/10 text-white"
+                    placeholder="スキルを入力（例：Python, JavaScript）"
+                    className="flex-1 rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 text-white placeholder-white/50 focus:ring-blue-500 focus:outline-none transition-all duration-200"
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {
                         addSkill(e.currentTarget.value);
@@ -339,191 +446,243 @@ export default function Page() {
                   />
                   <button
                     onClick={() => {
-                      const input = document.querySelector('input[placeholder="スキルを入力"]') as HTMLInputElement;
+                      const input = document.querySelector('input[placeholder="スキルを入力（例：Python, JavaScript）"]') as HTMLInputElement;
                       if (input) {
                         addSkill(input.value);
                         input.value = '';
                       }
                     }}
-                    className="px-4 py-2 rounded bg-brand text-white hover:bg-brand-dark transition-colors"
+                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                  >
+                    追加
+                  </button>
+                </div>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-white/90 mb-3">資格・認定</label>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {editForm.certifications.map((certification, index) => (
+                    <span
+                      key={index}
+                      className="px-4 py-2 rounded-full bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-300 text-sm font-medium flex items-center gap-2 ring-1 ring-green-500/30"
+                    >
+                      {certification}
+                      <button
+                        onClick={() => removeCertification(certification)}
+                        className="text-green-300 hover:text-red-400 transition-colors"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    placeholder="資格・認定を入力（例：情報処理安全確保支援士）"
+                    className="flex-1 rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 text-white placeholder-white/50 focus:ring-green-500 focus:outline-none transition-all duration-200"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        addCertification(e.currentTarget.value);
+                        e.currentTarget.value = '';
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      const input = document.querySelector('input[placeholder="資格・認定を入力（例：情報処理安全確保支援士）"]') as HTMLInputElement;
+                      if (input) {
+                        addCertification(input.value);
+                        input.value = '';
+                      }
+                    }}
+                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-green-500 to-green-600 text-white font-medium hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                  >
+                    追加
+                  </button>
+                </div>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-white/90 mb-3">職場内資格</label>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {editForm.mos.map((mos, index) => (
+                    <span
+                      key={index}
+                      className="px-4 py-2 rounded-full bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 text-yellow-300 text-sm font-medium flex items-center gap-2 ring-1 ring-yellow-500/30"
+                    >
+                      {mos}
+                      <button
+                        onClick={() => removeMos(mos)}
+                        className="text-yellow-300 hover:text-red-400 transition-colors"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    placeholder="職場内資格を入力（例：MOS Excel Expert）"
+                    className="flex-1 rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 text-white placeholder-white/50 focus:ring-yellow-500 focus:outline-none transition-all duration-200"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        addMos(e.currentTarget.value);
+                        e.currentTarget.value = '';
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      const input = document.querySelector('input[placeholder="職場内資格を入力（例：MOS Excel Expert）"]') as HTMLInputElement;
+                      if (input) {
+                        addMos(input.value);
+                        input.value = '';
+                      }
+                    }}
+                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-yellow-600 text-white font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all duration-200 shadow-lg hover:shadow-xl"
                   >
                     追加
                   </button>
                 </div>
               </div>
             </div>
-            <div className="flex gap-2 mt-4">
+            <div className="flex gap-4 mt-8">
               <button
                 onClick={handleSaveProfile}
-                className="px-4 py-2 rounded bg-brand text-white hover:bg-brand-dark transition-colors"
+                className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
               >
-                保存
+                保存する
               </button>
               <button
                 onClick={() => setIsEditing(false)}
-                className="px-4 py-2 rounded bg-black/40 text-white hover:bg-white/10 transition-colors"
+                className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
               >
                 キャンセル
               </button>
             </div>
-          </div>
-        )}
-
-        {/* プロフィール情報 */}
-        {!isEditing && (
-          <div className="space-y-4">
-            {profile.bio && (
-              <p className="text-white/70">{profile.bio}</p>
-            )}
-            
-            <div className="flex flex-wrap gap-2">
-              {profile.skills.map((skill, index) => (
-                <span
-                  key={index}
-                  className="px-3 py-1 rounded bg-brand/20 text-brand text-sm"
-                >
-                  {skill}
-                </span>
-              ))}
             </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-white/50">
-              <div>
-                <span className="block">メール</span>
-                <span className="text-white/70">{profile.email}</span>
-              </div>
-              <div>
-                <span className="block">部署</span>
-                <span className="text-white/70">{profile.department}</span>
-              </div>
-              <div>
-                <span className="block">登録日</span>
-                <span className="text-white/70">{new Date(profile.created_date).toLocaleDateString()}</span>
-              </div>
-              <div>
-                <span className="block">最終ログイン</span>
-                <span className="text-white/70">{new Date(profile.last_login).toLocaleDateString()}</span>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+          )}
 
-      {/* タブナビゲーション */}
-      <div className="flex gap-2">
-        {[
-          { id: 'skills', label: 'スキル・資格' },
-          { id: 'settings', label: '設定' }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            className={`px-4 py-2 rounded transition-colors ${
-              activeTab === tab.id
-                ? 'bg-brand text-white'
-                : 'bg-black/20 text-white/70 hover:bg-white/10'
-            }`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-
-      {/* 進捗タブ */}
-      {activeTab === 'progress' && progressData && (
-        <div className="rounded-lg bg-white/5 p-6 ring-1 ring-white/10">
-          <h3 className="text-lg font-semibold mb-4">詳細進捗</h3>
-          
-          {/* 進捗チャート */}
-          <div className="mb-6">
-            <h4 className="text-md font-semibold mb-3">進捗グラフ</h4>
-            <div className="h-64 flex items-end justify-center space-x-2">
-              <div className="flex flex-col items-center">
-                <div 
-                  className="w-8 bg-brand rounded-t"
-                  style={{ height: `${(progressData.summary?.completed || 0) * 20}px` }}
-                ></div>
-                <span className="text-xs text-white/70 mt-2">完了</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <div 
-                  className="w-8 bg-yellow-500 rounded-t"
-                  style={{ height: `${(progressData.summary?.in_progress || 0) * 20}px` }}
-                ></div>
-                <span className="text-xs text-white/70 mt-2">進行中</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <div 
-                  className="w-8 bg-gray-500 rounded-t"
-                  style={{ height: `${(progressData.summary?.not_started || 0) * 20}px` }}
-                ></div>
-                <span className="text-xs text-white/70 mt-2">未開始</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 活動履歴 */}
-          {progressData.activities && progressData.activities.length > 0 && (
-            <div>
-              <h4 className="text-md font-semibold mb-3">最近の活動</h4>
-              <div className="space-y-2">
-                {progressData.activities.slice(0, 10).map((activity) => (
-                  <div key={activity.id} className="flex items-center justify-between p-3 rounded bg-black/20">
-                    <div>
-                      <div className="font-medium text-white">コンテンツ ID: {activity.material_id}</div>
-                      <div className="text-sm text-white/70">
-                        ステータス: {activity.status} | スコア: {activity.score || 0}
-                      </div>
+          {/* プロフィール情報 */}
+          {!isEditing && (
+            <div className="space-y-6">
+              {/* 自己紹介セクション */}
+              {profile.bio && (
+                <div className="rounded-lg bg-white/5 backdrop-blur-sm p-6 ring-1 ring-white/10 shadow-2xl">
+                  <h3 className="text-lg font-bold text-white mb-3">自己紹介</h3>
+                  <p className="text-white/80">{profile.bio}</p>
+                </div>
+              )}
+              
+              {/* スキル・資格セクション */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* スキル */}
+                <div className="rounded-lg bg-white/5 backdrop-blur-sm p-6 ring-1 ring-white/10 shadow-2xl">
+                  <h3 className="text-lg font-bold text-white mb-4">
+                    スキル
+                    {(profile.skills && profile.skills.length > 0) && (
+                      <span className="text-sm font-normal text-white/60 ml-2">({profile.skills.length})</span>
+                    )}
+                  </h3>
+                  
+                  {(profile.skills && profile.skills.length > 0) ? (
+                    <div className="flex flex-wrap gap-2">
+                      {profile.skills.map((skill, index) => (
+                        <span
+                          key={index}
+                          className="px-4 py-2 rounded-full bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 text-sm font-medium ring-1 ring-blue-500/30 hover:ring-blue-500/50 transition-all duration-200"
+                        >
+                          {skill}
+                        </span>
+                      ))}
                     </div>
-                    <div className="text-xs text-white/50">
-                      {new Date(activity.timestamp).toLocaleDateString()}
+                  ) : (
+                    <p className="text-white/50 italic">スキルが登録されていません</p>
+                  )}
+                </div>
+                
+                {/* 資格・認定 */}
+                <div className="rounded-lg bg-white/5 backdrop-blur-sm p-6 ring-1 ring-white/10 shadow-2xl">
+                  <h3 className="text-lg font-bold text-white mb-4">
+                    資格・認定
+                    {(profile.certifications && profile.certifications.length > 0) && (
+                      <span className="text-sm font-normal text-white/60 ml-2">({profile.certifications.length})</span>
+                    )}
+                  </h3>
+                  
+                  {(profile.certifications && profile.certifications.length > 0) ? (
+                    <div className="flex flex-wrap gap-2">
+                      {profile.certifications.map((certification, index) => (
+                        <span
+                          key={index}
+                          className="px-4 py-2 rounded-full bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-300 text-sm font-medium ring-1 ring-green-500/30 hover:ring-green-500/50 transition-all duration-200"
+                        >
+                          {certification}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-white/50 italic">資格・認定が登録されていません</p>
+                  )}
+                </div>
+
+                {/* 職場内資格 */}
+                <div className="rounded-lg bg-white/5 backdrop-blur-sm p-6 ring-1 ring-white/10 shadow-2xl">
+                  <h3 className="text-lg font-bold text-white mb-4">
+                    職場内資格
+                    {(profile.mos && profile.mos.length > 0) && (
+                      <span className="text-sm font-normal text-white/60 ml-2">({profile.mos.length})</span>
+                    )}
+                  </h3>
+                  
+                  {(profile.mos && profile.mos.length > 0) ? (
+                    <div className="flex flex-wrap gap-2">
+                      {profile.mos.map((mos, index) => (
+                        <span
+                          key={index}
+                          className="px-4 py-2 rounded-full bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 text-yellow-300 text-sm font-medium ring-1 ring-yellow-500/30 hover:ring-yellow-500/50 transition-all duration-200"
+                        >
+                          {mos}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-white/50 italic">職場内資格が登録されていません</p>
+                  )}
+                </div>
+              </div>
+              
+              
+              {/* 詳細情報 */}
+              <div className="rounded-lg bg-white/5 backdrop-blur-sm p-6 ring-1 ring-white/10 shadow-2xl">
+                <h3 className="text-lg font-bold text-white mb-4">詳細情報</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-white/60 text-sm mb-1">メールアドレス</p>
+                      <p className="text-white">{profile.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-white/60 text-sm mb-1">部署</p>
+                      <p className="text-white">{profile.department}</p>
                     </div>
                   </div>
-                ))}
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-white/60 text-sm mb-1">登録日</p>
+                      <p className="text-white">{new Date(profile.created_date).toLocaleDateString('ja-JP')}</p>
+                    </div>
+                    <div>
+                      <p className="text-white/60 text-sm mb-1">最終ログイン</p>
+                      <p className="text-white">{new Date(profile.last_login).toLocaleDateString('ja-JP')}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {/* スキル・資格タブ */}
-      {activeTab === 'skills' && (
-        <SkillManager userId={profile.sid} />
-      )}
-
-
-      {/* 設定タブ */}
-      {activeTab === 'settings' && (
-        <div className="rounded-lg bg-white/5 p-6 ring-1 ring-white/10">
-          <h3 className="text-lg font-semibold mb-4">設定</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 rounded bg-black/20">
-              <div>
-                <h4 className="font-medium text-white">メール通知</h4>
-                <p className="text-sm text-white/70">学習の進捗や新しいコンテンツについてメールで通知を受け取る</p>
-              </div>
-              <input type="checkbox" className="w-4 h-4 text-brand" defaultChecked />
-            </div>
-            
-            <div className="flex items-center justify-between p-4 rounded bg-black/20">
-              <div>
-                <h4 className="font-medium text-white">プライバシー設定</h4>
-                <p className="text-sm text-white/70">プロフィールを他のユーザーに公開する</p>
-              </div>
-              <input type="checkbox" className="w-4 h-4 text-brand" defaultChecked />
-            </div>
-            
-            <div className="flex items-center justify-between p-4 rounded bg-black/20">
-              <div>
-                <h4 className="font-medium text-white">ダークモード</h4>
-                <p className="text-sm text-white/70">ダークテーマを使用する</p>
-              </div>
-              <input type="checkbox" className="w-4 h-4 text-brand" defaultChecked />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
