@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { checkPermission } from '../lib/auth';
+import { LearningViewer } from './LearningViewer';
 
 interface ContentModalProps {
   content: any;
@@ -21,6 +22,7 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
   const [error, setError] = useState<string | null>(null);
   const [contentDetails, setContentDetails] = useState<any>(null);
   const [attachments, setAttachments] = useState<any[]>([]);
+  const [showLearningViewer, setShowLearningViewer] = useState(false);
 
   useEffect(() => {
     console.log('ContentModal - useEffect triggered with content:', content);
@@ -149,7 +151,13 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
   };
 
   const handleStartLearning = () => {
-    updateProgress('in_progress');
+    // updateProgress('in_progress'); // 学習中フラグを無効化
+    setShowLearningViewer(true);
+  };
+
+  const handleCloseLearningViewer = () => {
+    setShowLearningViewer(false);
+    onClose(); // 元のモーダルも閉じる
   };
 
   const handleDeleteLocalContent = async () => {
@@ -346,6 +354,58 @@ export function ContentModal({ content, isOpen, onClose, onProgressUpdate, onCon
 
   if (!isOpen || !content) {
     return null;
+  }
+
+       // 学習画面を表示する場合
+       if (showLearningViewer) {
+         // 実際の添付ファイルデータを使用
+         const actualFiles = attachments.map((file, index) => {
+           // ファイル拡張子からタイプを判定
+           const getFileType = (fileName: string): 'pdf' | 'pptx' | 'docx' | 'txt' | 'md' | 'video' | 'image' | 'other' => {
+             const ext = fileName.toLowerCase().split('.').pop();
+             switch (ext) {
+               case 'pdf': return 'pdf';
+               case 'pptx': case 'ppt': return 'pptx';
+               case 'docx': case 'doc': return 'docx';
+               case 'txt': return 'txt';
+               case 'md': return 'md';
+               case 'mp4': case 'avi': case 'mov': case 'wmv': return 'video';
+               case 'jpg': case 'jpeg': case 'png': case 'gif': case 'bmp': return 'image';
+               default: return 'other';
+             }
+           };
+
+           return {
+             id: `file_${index}`,
+             name: file.original_name || file.safe_name || file.name || 'Unknown',
+             safe_name: file.safe_name || file.name,
+             type: getFileType(file.original_name || file.safe_name || file.name || ''),
+             url: `/api/content/${content.id}/file/${file.safe_name || file.name}`, // 実際のファイルURL
+             order: index + 1,
+             completed: false,
+           };
+         });
+
+         // 添付ファイルがない場合はプレースホルダーを表示
+         const filesToShow = actualFiles.length > 0 ? actualFiles : [
+           {
+             id: 'placeholder',
+             name: '添付ファイルなし',
+             type: 'other' as const,
+             url: 'data:text/plain;base64,UGxlYXNlIGxvZyBpbiB0byBzZWUgdGhpcyB0ZXh0',
+             order: 1,
+             completed: false,
+           }
+         ];
+
+         return (
+           <LearningViewer
+             contentId={content.id}
+             contentTitle={content.title}
+             files={filesToShow}
+             onClose={handleCloseLearningViewer}
+           />
+         );
   }
 
   return (

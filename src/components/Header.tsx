@@ -11,7 +11,6 @@ import { ThemeToggle } from './ThemeToggle';
 const navItems = [
   { href: '/', label: 'ダッシュボード' },
   { href: '/content', label: 'コンテンツ' },
-  { href: '/progress', label: '進捗' },
   { href: '/leaderboard', label: 'リーダーボード', instructorOnly: true },
   { href: '/learning-tasks', label: '学習課題' },
   { href: '/assignments', label: '学習指示', instructorOnly: true },

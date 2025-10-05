@@ -34,26 +34,54 @@ export function SkillManager({ userId, className = '' }: SkillManagerProps) {
   const loadSkills = async () => {
     try {
       setIsLoading(true);
-      // 実際のAPIからスキルデータを取得
-      // const response = await fetch(`/api/users/${userId}/skills`);
-      // const data = await response.json();
       
-      // モックデータ
-      const mockSkills: Skill[] = [
-        { id: '1', name: 'Python', level: 3, category: 'Programming', acquired_date: '2024-01-15' },
-        { id: '2', name: 'React', level: 2, category: 'Frontend', acquired_date: '2024-02-20' },
-        { id: '3', name: 'Node.js', level: 2, category: 'Backend', acquired_date: '2024-03-10' },
-      ];
-      
-      const mockCertifications: Skill[] = [
-        { id: '4', name: 'AWS Certified Solutions Architect', level: 1, category: 'Cloud', acquired_date: '2024-01-30' },
-        { id: '5', name: 'Google Analytics Certified', level: 1, category: 'Analytics', acquired_date: '2024-02-15' },
-      ];
-
-      setSkills(mockSkills);
-      setCertifications(mockCertifications);
+      // プロフィールAPIからスキルデータを取得
+      const response = await fetch(`/api/profile/${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.profile.skills) {
+          // スキルと資格を分類
+          const userSkills: Skill[] = [];
+          const userCertifications: Skill[] = [];
+          
+          data.profile.skills.forEach((skill: any, index: number) => {
+            const skillData: Skill = {
+              id: `skill_${index}`,
+              name: skill,
+              level: 1, // デフォルトレベル
+              category: 'General',
+              acquired_date: new Date().toISOString().split('T')[0]
+            };
+            
+            // 資格かどうかの判定（簡単なキーワードチェック）
+            const certificationKeywords = ['certified', 'certificate', 'license', '資格', '認定'];
+            const isCertification = certificationKeywords.some(keyword => 
+              skill.toLowerCase().includes(keyword.toLowerCase())
+            );
+            
+            if (isCertification) {
+              userCertifications.push(skillData);
+            } else {
+              userSkills.push(skillData);
+            }
+          });
+          
+          setSkills(userSkills);
+          setCertifications(userCertifications);
+        } else {
+          // スキルデータがない場合は空配列
+          setSkills([]);
+          setCertifications([]);
+        }
+      } else {
+        console.error('プロフィール取得エラー:', response.status);
+        setSkills([]);
+        setCertifications([]);
+      }
     } catch (error) {
       console.error('スキル読み込みエラー:', error);
+      setSkills([]);
+      setCertifications([]);
     } finally {
       setIsLoading(false);
     }
@@ -63,32 +91,86 @@ export function SkillManager({ userId, className = '' }: SkillManagerProps) {
     if (!newSkill.name.trim()) return;
 
     try {
-      const skill: Skill = {
-        id: Date.now().toString(),
-        name: newSkill.name,
-        level: newSkill.level,
-        category: newSkill.category,
-        acquired_date: new Date().toISOString().split('T')[0]
-      };
+      // プロフィールAPIにスキルを追加
+      const response = await fetch('/api/profile/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: userId,
+          skills: [...skills.map(s => s.name), ...certifications.map(c => c.name), newSkill.name]
+        })
+      });
 
-      if (newSkill.type === 'skill') {
-        setSkills(prev => [...prev, skill]);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          // ローカル状態を更新
+          const skill: Skill = {
+            id: Date.now().toString(),
+            name: newSkill.name,
+            level: newSkill.level,
+            category: newSkill.category,
+            acquired_date: new Date().toISOString().split('T')[0]
+          };
+
+          if (newSkill.type === 'skill') {
+            setSkills(prev => [...prev, skill]);
+          } else {
+            setCertifications(prev => [...prev, skill]);
+          }
+
+          setNewSkill({ name: '', level: 1, category: '', type: 'skill' });
+          setShowAddForm(false);
+        }
       } else {
-        setCertifications(prev => [...prev, skill]);
+        console.error('スキル追加APIエラー:', response.status);
       }
-
-      setNewSkill({ name: '', level: 1, category: '', type: 'skill' });
-      setShowAddForm(false);
     } catch (error) {
       console.error('スキル追加エラー:', error);
     }
   };
 
-  const handleDeleteSkill = (id: string, type: 'skill' | 'certification') => {
-    if (type === 'skill') {
-      setSkills(prev => prev.filter(skill => skill.id !== id));
-    } else {
-      setCertifications(prev => prev.filter(cert => cert.id !== id));
+  const handleDeleteSkill = async (id: string, type: 'skill' | 'certification') => {
+    try {
+      // 削除するスキル名を取得
+      const skillToDelete = type === 'skill' 
+        ? skills.find(s => s.id === id)?.name
+        : certifications.find(c => c.id === id)?.name;
+      
+      if (!skillToDelete) return;
+
+      // プロフィールAPIからスキルを削除
+      const updatedSkills = type === 'skill'
+        ? skills.filter(skill => skill.id !== id).map(s => s.name)
+        : certifications.filter(cert => cert.id !== id).map(c => c.name);
+      
+      const allSkills = [...skills.map(s => s.name), ...certifications.map(c => c.name)]
+        .filter(skill => skill !== skillToDelete);
+
+      const response = await fetch('/api/profile/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: userId,
+          skills: allSkills
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          // ローカル状態を更新
+          if (type === 'skill') {
+            setSkills(prev => prev.filter(skill => skill.id !== id));
+          } else {
+            setCertifications(prev => prev.filter(cert => cert.id !== id));
+          }
+        }
+      } else {
+        console.error('スキル削除APIエラー:', response.status);
+      }
+    } catch (error) {
+      console.error('スキル削除エラー:', error);
     }
   };
 

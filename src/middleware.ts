@@ -4,7 +4,6 @@ import type { NextRequest } from 'next/server';
 // 認証が必要なページのパス
 const protectedPaths = [
   '/content',
-  '/progress',
   '/leaderboard',
   '/learning-tasks',
   '/assignments',

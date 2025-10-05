@@ -2,49 +2,30 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { apiClient, ProgressData, Material } from '../lib/api';
+import { apiClient, ProgressData } from '../lib/api';
+import { ProgressChart } from '../components/ProgressChart';
+import { LearningHistory } from '../components/LearningHistory';
 
 export default function Page() {
   const { user, isLoading: authLoading } = useAuth();
   const [progressData, setProgressData] = useState<ProgressData | null>(null);
-  const [recentMaterials, setRecentMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('my-progress');
 
   useEffect(() => {
-    console.log(`[ページ調査] ===== Page useEffect 開始 =====`);
-    console.log(`[ページ調査] 現在のuser状態:`, user);
-    console.log(`[ページ調査] 現在のauthLoading状態:`, authLoading);
-    console.log(`[ページ調査] 現在のloading状態:`, loading);
-    console.log(`[ページ調査] コンポーネントマウント時刻:`, new Date().toISOString());
-    console.log(`[ページ調査] スタックトレース:`, new Error().stack);
-    
     const fetchData = async () => {
-      console.log(`[ページ調査] fetchData 関数開始`);
-      console.log(`[ページ調査] authLoading:`, authLoading);
-      console.log(`[ページ調査] user:`, user);
-      
       // 認証が完了するまで待機
       if (authLoading || !user) {
-        console.log(`[ページ調査] 認証待機中またはユーザーなし、スキップ`);
         return;
       }
 
       try {
-        console.log(`[ページ調査] データ取得開始`);
         setLoading(true);
         
         // 進捗データ取得
-        console.log(`[ページ調査] 進捗データ取得開始:`, user.sid);
         const progress = await apiClient.getProgress(user.sid);
-        console.log(`[ページ調査] 進捗データ取得完了:`, progress);
         setProgressData(progress);
-        
-        // コンテンツ一覧取得
-        console.log(`[ページ調査] コンテンツ一覧取得開始`);
-        const materials = await apiClient.getContent();
-        console.log(`[ページ調査] コンテンツ一覧取得完了:`, materials);
-        setRecentMaterials(Array.isArray(materials) ? materials.slice(0, 5) : []);
         
       } catch (err) {
         console.error('データ取得エラー:', err);
@@ -80,55 +61,111 @@ export default function Page() {
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <section className="rounded-lg bg-white/5 p-6 ring-1 ring-white/10">
-        <h2 className="text-xl font-semibold mb-3">学習サマリー</h2>
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded bg-black/20 p-4">
-            <div className="text-white/70">完了</div>
-            <div className="text-2xl font-bold text-brand">
-              {progressData?.summary.completed || 0}
-            </div>
-          </div>
-          <div className="rounded bg-black/20 p-4">
-            <div className="text-white/70">進行中</div>
-            <div className="text-2xl font-bold text-brand">
-              {progressData?.summary.in_progress || 0}
-            </div>
-          </div>
-          <div className="rounded bg-black/20 p-4">
-            <div className="text-white/70">未開始</div>
-            <div className="text-2xl font-bold text-brand">
-              {progressData?.summary.not_started || 0}
-            </div>
-          </div>
-          <div className="rounded bg-black/20 p-4">
-            <div className="text-white/70">完了率</div>
-            <div className="text-2xl font-bold text-brand">
-              {progressData?.summary.completion_rate || 0}%
-            </div>
-          </div>
+    <div className="space-y-6">
+      <div className="rounded-lg bg-white/5 p-6 ring-1 ring-white/10">
+        <h2 className="text-xl font-semibold mb-4">学習ダッシュボード</h2>
+        
+        {/* タブナビゲーション */}
+        <div className="flex gap-2 mb-6">
+          <button
+            className={`px-4 py-2 rounded transition-colors ${
+              activeTab === 'my-progress'
+                ? 'bg-brand text-white'
+                : 'bg-black/20 text-white/70 hover:bg-white/10'
+            }`}
+            onClick={() => setActiveTab('my-progress')}
+          >
+            学習進捗
+          </button>
+          <button
+            className={`px-4 py-2 rounded transition-colors ${
+              activeTab === 'learning-history'
+                ? 'bg-brand text-white'
+                : 'bg-black/20 text-white/70 hover:bg-white/10'
+            }`}
+            onClick={() => setActiveTab('learning-history')}
+          >
+            学習履歴
+          </button>
         </div>
-      </section>
 
-      <section className="rounded-lg bg-white/5 p-6 ring-1 ring-white/10">
-        <h2 className="text-xl font-semibold mb-3">最近の学習</h2>
-        {recentMaterials.length > 0 ? (
-          <div className="space-y-2">
-            {recentMaterials.map((material) => (
-              <div key={material.id} className="p-3 rounded bg-black/20">
-                <div className="font-medium text-white">{material.title}</div>
-                <div className="text-sm text-white/70">{material.description}</div>
-                <div className="text-xs text-white/50 mt-1">
-                  {material.difficulty} • {material.estimated_hours}時間
+        {/* 学習進捗タブ */}
+        {activeTab === 'my-progress' && (
+          <div className="space-y-6">
+            {/* 進捗サマリー */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* 数値サマリー */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-lg bg-black/20 p-4 text-center">
+                  <div className="text-2xl font-bold text-brand mb-1">
+                    {progressData?.summary.completed || 0}
+                  </div>
+                  <div className="text-sm text-white/70">完了</div>
+                </div>
+                <div className="rounded-lg bg-black/20 p-4 text-center">
+                  <div className="text-2xl font-bold text-brand mb-1">
+                    {progressData?.summary.in_progress || 0}
+                  </div>
+                  <div className="text-sm text-white/70">進行中</div>
+                </div>
+                <div className="rounded-lg bg-black/20 p-4 text-center">
+                  <div className="text-2xl font-bold text-brand mb-1">
+                    {progressData?.summary.not_started || 0}
+                  </div>
+                  <div className="text-sm text-white/70">未開始</div>
+                </div>
+                <div className="rounded-lg bg-black/20 p-4 text-center">
+                  <div className="text-2xl font-bold text-brand mb-1">
+                    {progressData?.summary.completion_rate || 0}%
+                  </div>
+                  <div className="text-sm text-white/70">完了率</div>
                 </div>
               </div>
-            ))}
+              
+              {/* 進捗チャート */}
+              <div className="flex justify-center">
+                <ProgressChart 
+                  data={{
+                    completed: progressData?.summary.completed || 0,
+                    in_progress: progressData?.summary.in_progress || 0,
+                    not_started: progressData?.summary.not_started || 0
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* 最近の学習活動 */}
+            <div className="rounded-lg bg-black/20 p-6">
+              <h3 className="text-lg font-semibold mb-4">最近の学習活動</h3>
+              {progressData?.activities && progressData.activities.length > 0 ? (
+                <div className="space-y-3">
+                  {progressData.activities.slice(0, 5).map((activity) => (
+                    <div key={activity.id} className="flex items-center justify-between p-3 rounded bg-black/20">
+                      <div>
+                        <div className="font-medium text-white">コンテンツ ID: {activity.material_id}</div>
+                        <div className="text-sm text-white/70">
+                          ステータス: {activity.status} | スコア: {activity.score || 0}
+                        </div>
+                      </div>
+                      <div className="text-xs text-white/50">
+                        {new Date(activity.timestamp).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-white/70">学習活動履歴がありません。</p>
+              )}
+            </div>
           </div>
-        ) : (
-          <p className="text-white/70">コンテンツは未取得です。</p>
         )}
-      </section>
+
+
+        {/* 学習履歴タブ */}
+        {activeTab === 'learning-history' && user && (
+          <LearningHistory userId={user.sid} />
+        )}
+      </div>
     </div>
   );
 }

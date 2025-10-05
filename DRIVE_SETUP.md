@@ -77,3 +77,4 @@ export const KNOWLEDGE_PORTAL_DRIVE_PATH = process.env.KNOWLEDGE_PORTAL_DRIVE_PA
 - **自動適用**: すべての機能に自動反映
 - **エラー防止**: 複数箇所の変更忘れを防止
 - **保守性向上**: 設定の一元管理
+

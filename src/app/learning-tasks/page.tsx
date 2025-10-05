@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { apiClient, Material, Category } from '../../lib/api';
+import { apiClient, Material, Category, ProgressData } from '../../lib/api';
 import { Assignment } from '../../lib/data';
 import { AssignmentTab } from './components/AssignmentTab';
 import { MyLearningTab } from './components/MyLearningTab';
@@ -11,6 +11,7 @@ import { ContentModal } from '../../components/ContentModal';
 export default function Page() {
   const [activeTab, setActiveTab] = useState<'instructions' | 'my_learning' | 'recommendations'>('instructions');
   const [user, setUser] = useState<any>(null);
+  const [progressData, setProgressData] = useState<ProgressData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -27,6 +28,10 @@ export default function Page() {
         const authResult = await apiClient.authenticate();
         if (authResult?.user) {
           setUser(authResult.user);
+          
+          // 進捗データを取得
+          const progress = await apiClient.getProgress(authResult.user.sid);
+          setProgressData(progress);
         } else {
           throw new Error('ユーザー情報の取得に失敗しました');
         }
@@ -123,6 +128,39 @@ export default function Page() {
 
   return (
     <div className="space-y-6">
+      {/* ステータスセクション */}
+      {progressData && (
+        <div className="rounded-lg bg-white/5 p-6 ring-1 ring-white/10">
+          <h3 className="text-lg font-semibold mb-4">ステータス</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-brand mb-1">
+                {progressData.summary?.completed || 0}
+              </div>
+              <div className="text-sm text-white/70">完了</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-yellow-400 mb-1">
+                {progressData.summary?.in_progress || 0}
+              </div>
+              <div className="text-sm text-white/70">進行中</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-400 mb-1">
+                {progressData.summary?.not_started || 0}
+              </div>
+              <div className="text-sm text-white/70">未開始</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-400 mb-1">
+                {progressData.summary?.completion_rate || 0}%
+              </div>
+              <div className="text-sm text-white/70">完了率</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-lg bg-white/5 p-6 ring-1 ring-white/10">
         <h2 className="text-xl font-semibold mb-6">学習課題</h2>
         
@@ -206,6 +244,7 @@ export default function Page() {
             onProgressUpdate={handleProgressUpdate}
           />
         )}
+
       </div>
     </div>
   );

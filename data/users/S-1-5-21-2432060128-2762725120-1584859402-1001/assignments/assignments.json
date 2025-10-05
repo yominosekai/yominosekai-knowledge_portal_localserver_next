@@ -1,1 +1,30 @@
-[]
+[
+  {
+    "contentId": "1759596560210",
+    "assignedTo": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+    "assignedBy": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+    "assignedDate": "2025-10-05T01:32:48.565Z",
+    "dueDate": "2025-10-22",
+    "status": "pending",
+    "progress": 0,
+    "notes": "test",
+    "priority": "medium",
+    "id": "assignment_1759627968565_9qsd0japl",
+    "created_date": "2025-10-05T01:32:48.565Z",
+    "updated_date": "2025-10-05T01:32:48.565Z"
+  },
+  {
+    "contentId": "1759596560210",
+    "assignedTo": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+    "assignedBy": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+    "assignedDate": "2025-10-05T01:45:39.028Z",
+    "dueDate": "2025-10-08",
+    "status": "pending",
+    "progress": 0,
+    "notes": "",
+    "priority": "medium",
+    "id": "assignment_1759628739028_2jrohyabe",
+    "created_date": "2025-10-05T01:45:39.028Z",
+    "updated_date": "2025-10-05T01:45:39.028Z"
+  }
+]

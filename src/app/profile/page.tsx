@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import { apiClient, ProgressData, Material } from '../../lib/api';
 import { AvatarUpload } from '../../components/AvatarUpload';
 import { SkillManager } from '../../components/SkillManager';
-import { LearningHistory } from '../../components/LearningHistory';
 
 interface UserProfile {
   sid: string;
@@ -31,13 +31,13 @@ interface Activity {
 }
 
 export default function Page() {
+  const { user, isLoading: authLoading } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [progressData, setProgressData] = useState<ProgressData | null>(null);
-  const [recentMaterials, setRecentMaterials] = useState<Material[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('skills');
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     display_name: '',
@@ -49,42 +49,43 @@ export default function Page() {
 
   useEffect(() => {
     const fetchData = async () => {
+      // 認証が完了するまで待機
+      if (authLoading || !user) {
+        return;
+      }
+
       try {
         setLoading(true);
         
-        // 認証
-        await apiClient.authenticate();
-        
-        // プロフィールデータ取得（仮実装）
-        const mockProfile: UserProfile = {
-          sid: 'S-1-5-21-2432060128-2762725120-1584859402-1001',
-          username: 'user001',
-          display_name: '田中太郎',
-          email: 'tanaka@example.com',
-          department: '開発部',
-          role: 'user',
-          created_date: '2024-01-15T00:00:00Z',
-          last_login: new Date().toISOString(),
-          is_active: 'true',
-          skills: ['JavaScript', 'React', 'Node.js', 'TypeScript'],
-          bio: 'フロントエンド開発者として5年の経験があります。新しい技術の学習を楽しんでいます。'
-        };
-        
-        setProfile(mockProfile);
-        setEditForm({
-          display_name: mockProfile.display_name,
-          email: mockProfile.email,
-          bio: mockProfile.bio || '',
-          skills: mockProfile.skills
-        });
+        // プロフィールデータ取得
+        const profileResponse = await fetch(`/api/profile/${user.sid}`);
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          if (profileData.success) {
+            const userProfile = profileData.profile;
+            // 不足しているフィールドにデフォルト値を設定
+            const enrichedProfile = {
+              ...userProfile,
+              skills: userProfile.skills || [],
+              bio: userProfile.bio || '',
+              avatar: userProfile.avatar || ''
+            };
+            setProfile(enrichedProfile);
+            setEditForm({
+              display_name: enrichedProfile.display_name || '',
+              email: enrichedProfile.email || '',
+              bio: enrichedProfile.bio || '',
+              skills: enrichedProfile.skills || []
+            });
+          }
+        } else {
+          console.error('プロフィール取得エラー:', profileResponse.status);
+          setError('プロフィールの取得に失敗しました。');
+        }
         
         // 進捗データ取得
-        const progress = await apiClient.getProgress(mockProfile.sid);
+        const progress = await apiClient.getProgress(user.sid);
         setProgressData(progress);
-        
-        // 最近の学習コンテンツ取得
-        const materials = await apiClient.getContent();
-        setRecentMaterials(materials.slice(0, 5));
         
         // 活動履歴生成（仮実装）
         const mockActivities: Activity[] = [
@@ -125,22 +126,37 @@ export default function Page() {
     };
 
     fetchData();
-  }, []);
+  }, [user, authLoading]);
 
   const handleSaveProfile = async () => {
+    if (!profile) return;
+    
     try {
       const response = await fetch('/api/profile/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: profile?.sid,
-          ...editForm
+          userId: profile.sid,
+          display_name: editForm.display_name,
+          email: editForm.email,
+          bio: editForm.bio,
+          skills: editForm.skills
         })
       });
       
       if (response.ok) {
-        setProfile(prev => prev ? { ...prev, ...editForm } : null);
-        setIsEditing(false);
+        const result = await response.json();
+        if (result.success) {
+          // プロフィールを再取得して最新データを反映
+          const profileResponse = await fetch(`/api/profile/${profile.sid}`);
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            if (profileData.success) {
+              setProfile(profileData.profile);
+            }
+          }
+          setIsEditing(false);
+        }
       }
     } catch (err) {
       console.error('プロフィール更新エラー:', err);
@@ -183,10 +199,15 @@ export default function Page() {
     }
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
-        <div className="text-white/70">データを読み込み中...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mx-auto mb-4"></div>
+          <div className="text-white/70">
+            {authLoading ? '認証中...' : 'データを読み込み中...'}
+          </div>
+        </div>
       </div>
     );
   }
@@ -391,9 +412,7 @@ export default function Page() {
       {/* タブナビゲーション */}
       <div className="flex gap-2">
         {[
-          { id: 'overview', label: '概要' },
           { id: 'skills', label: 'スキル・資格' },
-          { id: 'activities', label: '学習履歴' },
           { id: 'settings', label: '設定' }
         ].map(tab => (
           <button
@@ -410,61 +429,6 @@ export default function Page() {
         ))}
       </div>
 
-      {/* 概要タブ */}
-      {activeTab === 'overview' && (
-        <div className="space-y-6">
-          {/* 進捗サマリー */}
-          {progressData && (
-            <div className="rounded-lg bg-white/5 p-6 ring-1 ring-white/10">
-              <h3 className="text-lg font-semibold mb-4">学習進捗</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-brand mb-1">
-                    {progressData.summary?.completed || 0}
-                  </div>
-                  <div className="text-sm text-white/70">完了</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-400 mb-1">
-                    {progressData.summary?.in_progress || 0}
-                  </div>
-                  <div className="text-sm text-white/70">進行中</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-400 mb-1">
-                    {progressData.summary?.not_started || 0}
-                  </div>
-                  <div className="text-sm text-white/70">未開始</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-400 mb-1">
-                    {progressData.summary?.completion_rate || 0}%
-                  </div>
-                  <div className="text-sm text-white/70">完了率</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 最近の学習 */}
-          <div className="rounded-lg bg-white/5 p-6 ring-1 ring-white/10">
-            <h3 className="text-lg font-semibold mb-4">最近の学習</h3>
-            <div className="space-y-3">
-              {recentMaterials.map((material) => (
-                <div key={material.id} className="flex items-center justify-between p-3 rounded bg-black/20">
-                  <div>
-                    <h4 className="font-medium text-white">{material.title}</h4>
-                    <p className="text-sm text-white/70">{material.description}</p>
-                  </div>
-                  <div className="text-xs text-white/50">
-                    {material.difficulty} • {material.estimated_hours}時間
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 進捗タブ */}
       {activeTab === 'progress' && progressData && (
@@ -528,10 +492,6 @@ export default function Page() {
         <SkillManager userId={profile.sid} />
       )}
 
-      {/* 学習履歴タブ */}
-      {activeTab === 'activities' && (
-        <LearningHistory userId={profile.sid} />
-      )}
 
       {/* 設定タブ */}
       {activeTab === 'settings' && (

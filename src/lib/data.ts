@@ -247,7 +247,7 @@ async function saveUserProfile(userId: string, profile: any) {
 }
 
 // ユーザープロファイルの取得（ユーザー別ファイル）
-async function getUserProfile(userId: string) {
+export async function getUserProfile(userId: string) {
   try {
     console.log(`[getUserProfile] Getting profile for user: ${userId}`);
     
@@ -439,7 +439,8 @@ export async function getUserActivities(userId: string) {
     return { success: true, activities: activities.activities || [] };
   } catch (error) {
     console.error(`[getUserActivities] Error getting activities:`, error);
-    return { success: false, activities: [] };
+    console.error(`[getUserActivities] Error details:`, error);
+    return { success: true, activities: [] }; // エラーでも空配列を返す
   }
 }
 

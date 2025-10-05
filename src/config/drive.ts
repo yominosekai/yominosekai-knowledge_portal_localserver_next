@@ -19,3 +19,4 @@ export const CONFIG = {
   POLLING_INTERVAL: 60000, // 60秒
   MAX_RETRY_ATTEMPTS: 5,
 } as const;
+

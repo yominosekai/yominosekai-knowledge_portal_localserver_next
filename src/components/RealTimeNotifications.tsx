@@ -85,7 +85,7 @@ export function RealTimeNotifications({ userId, className = '' }: RealTimeNotifi
     if (Notification.permission === 'granted') {
       new Notification(notification.title, {
         body: notification.message,
-        icon: '/favicon.ico'
+        icon: '/icons/assignment.png'
       });
     }
   };

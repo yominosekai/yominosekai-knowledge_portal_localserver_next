@@ -148,7 +148,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       try {
         const notification = new Notification(title, {
           body: message,
-          icon: icon || '/favicon.ico',
+          icon: icon || '/icons/assignment.png',
           tag: 'knowledge-portal',
           requireInteraction: false
         });

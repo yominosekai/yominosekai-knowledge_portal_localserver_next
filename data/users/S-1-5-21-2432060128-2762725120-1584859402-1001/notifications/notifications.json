@@ -1,1 +1,15 @@
-[]
+[
+  {
+    "id": "assignment_1759628739330_mdoj08qka",
+    "type": "assignment",
+    "title": "新しい学習指示が割り当てられました",
+    "message": "「学習指示」が割り当てられました。期限: 2025/10/8",
+    "timestamp": "2025-10-05T01:45:39.334Z",
+    "read": true,
+    "actionUrl": "/learning-tasks",
+    "actionText": "確認する",
+    "assignedBy": "S-1-5-21-2432060128-2762725120-1584859402-1001",
+    "assignmentId": "assignment_1759628739028_2jrohyabe",
+    "userId": "S-1-5-21-2432060128-2762725120-1584859402-1001"
+  }
+]
